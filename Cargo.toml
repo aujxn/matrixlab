@@ -6,7 +6,6 @@ version = "0.1.0"
 
 [dependencies]
 rayon = "1.0.3"
-combine = "3.8"
 
 [dev-dependencies]
 proptest = "0.9.1"
