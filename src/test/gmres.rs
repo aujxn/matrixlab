@@ -1,5 +1,5 @@
 mod matrix {
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn iteration_test() {
         let elements = vec![

@@ -16,7 +16,8 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //    
 
-use crate::matrix::{Matrix,MatrixElement,Element};
+use crate::matrix::sparse::{Matrix,Element};
+use crate::matrix::MatrixElement;
 
 //NOTE: This implementation could be vastly improved, get is fairly slow
 pub struct MatrixIter<'a,A: MatrixElement> {

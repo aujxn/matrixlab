@@ -1,5 +1,5 @@
 mod matrix {
-    use crate::dense::DenseMatrix;
+    use crate::matrix::dense::DenseMatrix;
     #[test]
     fn matrix_multiplication() {
         let columns = vec![vec![1,0],vec![2,1]];
@@ -52,7 +52,7 @@ mod matrix {
     //}
 }
 mod orthogonal {
-    use crate::dense::DenseMatrix;
+    use crate::matrix::dense::DenseMatrix;
     #[test]
     fn matrix_multiplication() {
         let columns = vec![vec![0.0,0.0,1.0],vec![0.0,1.0,1.0],vec![1.0,1.0,1.0]];

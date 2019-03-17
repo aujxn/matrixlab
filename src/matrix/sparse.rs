@@ -21,14 +21,9 @@ use rayon::prelude::*;
 use crate::iter::{ElementsIter,MatrixIter};
 use crate::error::Error;
 use crate::vector::{VectorTrait,Vector,FloatVectorTrait};
-use crate::dense::DenseMatrix;
+use super::dense::DenseMatrix;
+use super::MatrixElement;
 
-
-// These are traits every element needs to have
-// Numbers trivially fulfill this
-pub trait MatrixElement: Copy + Sized + Send + Sync + PartialEq {}
-
-impl<A: Copy + Sized + Send + Sync + PartialEq> MatrixElement for A {}
 
 #[derive(Clone,Debug,PartialEq,Copy)]
 /// A point with y and x coordinates, as well as some data

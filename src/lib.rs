@@ -17,7 +17,6 @@
 //    
 
 
-pub mod dense;
 pub mod error;
 pub mod matrix;
 pub mod iter;
@@ -26,7 +25,7 @@ pub mod vector;
 mod test;
 
 
-use matrix::{Matrix,Element};
+use matrix::sparse::{Matrix,Element};
 use error::Error;
 
 use std::fs::File;

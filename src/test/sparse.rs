@@ -1,6 +1,6 @@
 mod matrix {
     use crate::error::Error;
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn matrix_creation() {
         let elements = vec![Element(1,1,2u64),Element(1,2,1)];
@@ -53,7 +53,7 @@ mod matrix {
 
 
 mod transpose {
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn transpose_sum() {
         let elements = vec![Element(1,1,2u64),Element(1,2,17)];
@@ -69,7 +69,7 @@ mod transpose {
 
 }
 mod vector_mult {
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn mult() {
         let elements = vec![Element(1,1,2u64),Element(1,2,1)];
@@ -98,7 +98,7 @@ mod vector_mult {
     }
 }
 mod sparse_vector_mult {
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn mult() {
         let elements = vec![Element(1,1,2u64),Element(1,2,1)];
@@ -127,7 +127,7 @@ mod sparse_vector_mult {
     }
 }
 mod matrix_mult {
-    use crate::matrix::{Element,Matrix};
+    use crate::matrix::sparse::{Element,Matrix};
     #[test]
     fn mult() {
         let elements = vec![Element(1,1,2i64),Element(1,2,1)];
