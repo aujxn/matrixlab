@@ -326,13 +326,13 @@ impl Matrix<f64> {
         let mut big_b = DenseMatrix::new(vec![self * &p]);
         let mut big_p = DenseMatrix::new(vec![p]);
         loop {
-            let alpha = big_b.least_squares(&r);
+            let alpha = big_b.least_squares(&r)?;
 
 
-            x = x.add(&big_p.vec_mul(&alpha));
+            x = x.add(&big_p.vec_mul(&alpha)?);
 
             // This is where things get wonky -- wait its not
-            r = r.sub(&big_b.vec_mul(&alpha));
+            r = r.sub(&big_b.vec_mul(&alpha)?);
             let norm = r.norm();
             if norm < final_norm {
                 return Ok(x);

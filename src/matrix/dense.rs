@@ -70,8 +70,22 @@ impl<A: Clone> DenseMatrix<A> {
 
 //TODO: Make this generic?
 impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Sub<Output=A> + Default> DenseMatrix<A> {
-    pub fn vec_mul(&self, other: &Vector<A>) -> Vector<A> {
-        self.columns.par_iter()
+    pub fn scale(&self, other: &A) -> DenseMatrix<A> {
+        let columns = self.columns.par_iter()
+            .map_with(other, 
+                      |&mut o, column| column.iter()
+                                             .map(|e| *o**e)
+                                             .collect())
+            .collect();
+        DenseMatrix::new(columns)
+    }
+    pub fn vec_mul(&self, other: &Vector<A>) -> Result<Vector<A>,Error> {
+        // If the size of the vector doesn't match the number of
+        // columns then error out
+        if other.len() != self.columns.len() {
+            return Err(Error::SizeMismatch);
+        }
+        Ok(self.columns.par_iter()
             .zip(other.par_iter())
             // Is there any way to make this a normal iterator
             // and still be able to flatten?
@@ -86,7 +100,7 @@ impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Sub<Output=A> + Default>
                    .take(self.num_rows())
                    .cloned()
                    .collect(),
-                |x,y| x.add(&y))
+                |x,y| x.add(&y)))
             //.collect()
     }
     pub fn safe_mul(&self, other: &DenseMatrix<A>) -> Result<DenseMatrix<A>,Error> {
@@ -96,7 +110,7 @@ impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Sub<Output=A> + Default>
 
         let new_cols = other.columns.par_iter()
             .map_with(self, |&mut s, col| s.vec_mul(col))
-            .collect();
+            .collect::<Result<Vec<Vec<A>>,Error>>()?;
 
         Ok(DenseMatrix::new(new_cols))
         
@@ -128,19 +142,15 @@ impl DenseMatrix<f64> {
         solutions
     }
     /// This solves for B*y = r
-    pub fn least_squares(&self, r: &Vector<f64>) -> Vector<f64> {
+    pub fn least_squares(&self, r: &Vector<f64>) -> Result<Vector<f64>,Error> {
         //Solve for Q, for our QR factorization
         let q = self.factor_q();
-        println!("Q: {:?}",q);
         let q_transpose = q.transpose();
-        println!("q_transpose: {:?}",q_transpose);
-        let rhs = q_transpose.vec_mul(&r);
-        println!("rhs: {:?}",rhs);
+        let rhs = q_transpose.vec_mul(&r)?;
         let r = q_transpose.safe_mul(self).expect("Error in least squares, multiplication failed");;
-        println!("R: {:?}",r);
 
         //Now solve for Ra = rhs, then return a
-        r.backsolve(&rhs)
+        Ok(r.backsolve(&rhs))
     }
     pub fn factor_q(&self) -> DenseMatrix<f64> {
         let mut q_vectors: Vec<Vector<f64>> = Vec::with_capacity(self.num_columns());
