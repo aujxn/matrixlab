@@ -80,7 +80,8 @@ pub fn from_file(filename: &Path) -> Result<Matrix<f64>,Error> {
         let (row,column,data) = read_line(line,&ty)?;
         match prop {
             Prop::General => {},
-            _ => entries.push(Element(column,row,data))
+            // Push the symmetric entry, unless we're on the diagonal
+            _ => if column != row { entries.push(Element(column,row,data)) }
         }
         entries.push(Element(row,column,data));
 
