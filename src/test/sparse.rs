@@ -145,3 +145,16 @@ mod matrix_mult {
         assert_eq!(result,mat);
     }
 }
+mod iter {
+    use crate::matrix::sparse::{Element,Matrix};
+    #[test]
+    fn all_elements_iter() {
+        let elements = vec![Element(1,1,2i64),Element(1,2,1)];
+        // Create a new 2X2 matrix
+        let mat = Matrix::new(2,2,elements.clone()).unwrap();
+        let all_elements = mat.all_elements();
+        assert_eq!(vec![2i64,1,0,0],all_elements.collect::<Vec<i64>>());
+
+    }
+
+}

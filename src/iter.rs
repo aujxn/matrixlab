@@ -23,20 +23,21 @@ use crate::matrix::MatrixElement;
 pub struct MatrixIter<'a,A: MatrixElement> {
     matrix: &'a Matrix<A>,
     row: usize,
-    column: usize
+    column: usize,
 
 }
-impl<'a,A: MatrixElement> MatrixIter<'a,A> {
+impl<'a,A: MatrixElement > MatrixIter<'a,A> {
     pub fn new(matrix: &'a Matrix<A>) -> MatrixIter<'a,A> {
         MatrixIter {
             row: 1,
             column: 1,
+            //Set up a default value we can return references to
             matrix
         }
     }
 }
-impl<'a,A: MatrixElement> Iterator for MatrixIter<'a,A> {
-    type Item = &'a A;
+impl<'a,A: MatrixElement + Default> Iterator for MatrixIter<'a,A> {
+    type Item = A;
     // We can easily calculate the remaining number of iterations.
     fn next(&mut self) -> Option<Self::Item> {
 
@@ -55,11 +56,15 @@ impl<'a,A: MatrixElement> Iterator for MatrixIter<'a,A> {
             //And increment the rows
             self.row += 1;
         }
+        //TODO: clone bad
+        Some(match result {
+            Some(x) => x.clone(),
+            None => Default::default()
+        })
 
-        result
     }
 }
-impl<'a,A: MatrixElement> ExactSizeIterator for MatrixIter<'a,A> {
+impl<'a,A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a,A> {
     // We can easily calculate the remaining number of iterations.
     fn len(&self) -> usize {
         self.matrix.num_rows()*self.matrix.num_columns()

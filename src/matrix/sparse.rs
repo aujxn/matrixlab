@@ -134,11 +134,11 @@ impl<A: MatrixElement> Matrix<A> {
     /// the element if it exists, otherwise returns a None
     /// which is usually equivalent to a 0
     pub fn get(&self,row: usize, column: usize) -> Option<&A> {
-        let row_start = *self.rows.get(row)?;
+        let row_start = *self.rows.get(row-1)?;
         //This should always return some
         //Otherwise error out
         //Maybe it's better to unwrap here?
-        let row_end   = *self.rows.get(row+1)?;
+        let row_end   = *self.rows.get(row)?;
 
         for i in row_start .. row_end {
             //Maybe todo: unwrap again?
@@ -415,9 +415,10 @@ for &Matrix<A> {
 
 }
 
-impl<A: MatrixElement + Display> Display for Matrix<A> {
+impl<A: MatrixElement + Display + Default> Display for Matrix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let elements: Vec<&A> = self.all_elements().collect();
+        let elements: Vec<A> = self.all_elements()
+            .collect();
         //We want to print a row out at a time
         let chunks = elements.chunks(self.num_columns());
         for chunk in chunks {
