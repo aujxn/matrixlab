@@ -51,6 +51,8 @@ impl PartialEq for Error {
             (ElementOutOfBounds,ElementOutOfBounds) => true,
             (DuplicateElements,DuplicateElements) => true,
             (IOError(_),IOError(_)) => true,
+            (InvalidFile,InvalidFile) => true,
+            (ExceededIterations,ExceededIterations) => true,
             _ => false
         }
     }

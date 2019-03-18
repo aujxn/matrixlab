@@ -301,16 +301,23 @@ impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Default> Matrix<A> {
 
 //We can only do gmres with f64 types
 impl Matrix<f64> {
-    pub fn gmres(&self, b: Vector<f64>) -> Result<Vector<f64>,Error> {
+    pub fn gmres(
+        &self, 
+        b: Vector<f64>,
+        max_iterations: usize,
+        tolerance: f64,
+        max_search_directions: usize
+    ) -> Result<Vector<f64>,Error> {
         // If the rows don't match up the error out straight away
         if self.num_columns() != self.num_rows() {
             return Err(Error::SizeMismatch);
         }
         //TODO: These maybe should be parameters to the function
-        let max_iterations = 1000;
+        //^ It has been made so
+        //let max_iterations = 1000;
         let mut i = 0;
         //Tolerance is 10^-6
-        let tolerance = 1.0/1000000.0;
+        //let tolerance = 1.0/1000000.0;
         // Create our guess, the 0 vector
         let mut x: Vector<f64> = [0.0f64].into_iter().cycle()
                                          .take(self.num_columns())
@@ -331,7 +338,6 @@ impl Matrix<f64> {
 
             x = x.add(&big_p.vec_mul(&alpha)?);
 
-            // This is where things get wonky -- wait its not
             r = r.sub(&big_b.vec_mul(&alpha)?);
             let norm = r.norm();
             if norm < final_norm {
@@ -341,10 +347,12 @@ impl Matrix<f64> {
             }
             i += 1;
 
-            let p = big_p.orthogonal_to(&r).normalize();
+            if big_p.num_columns() < max_search_directions {
+                let p = big_p.orthogonal_to(&r).normalize();
+                big_b.add_column(self.vec_mul(&p)?);
+                big_p.add_column(p);
+            }
 
-            big_b.add_column(self.vec_mul(&p)?);
-            big_p.add_column(p);
         }
 
 

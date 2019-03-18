@@ -27,6 +27,7 @@ pub struct DenseMatrix<A> {
     columns: Vec<Vector<A>>
 }
 impl<A> DenseMatrix<A> {
+    /// Creates a matrix from a vector of columns
     pub fn new(columns: Vec<Vector<A>>) -> DenseMatrix<A> {
         DenseMatrix {
             columns
@@ -65,6 +66,12 @@ impl<A: Clone> DenseMatrix<A> {
         }
 
         DenseMatrix::new(columns)
+    }
+    /// Creates a matrix from a vector of rows
+    pub fn from_rows(rows: Vec<Vector<A>>) -> DenseMatrix<A> {
+        DenseMatrix {
+            columns: rows
+        }.transpose()
     }
 }
 
