@@ -96,6 +96,22 @@ mod vector_mult {
         //Check to make sure we got the same elements back
         assert_eq!(result,vec![3,10]);
     }
+    #[test]
+    fn bigger_mult() {
+        let elements = vec![
+            Element(1,1,2u64),
+            Element(1,2,1),
+            Element(2,1,3),
+            Element(2,2,7),
+            Element(3,3,11),
+            ];
+        // Create a new 2X2 matrix
+        let mat = Matrix::new(3,3,elements.clone()).unwrap();
+        let result: Vec<u64> = &mat * &vec![7,2,1];
+
+        //Check to make sure we got the same elements back
+        assert_eq!(result,vec![16,35,11]);
+    }
 }
 mod sparse_vector_mult {
     use crate::matrix::sparse::{Element,Matrix};
@@ -124,6 +140,23 @@ mod sparse_vector_mult {
 
         //Check to make sure we got the same elements back
         assert_eq!(result,vec![Element(1,1,3),Element(2,1,10)]);
+    }
+    #[test]
+    fn bigger_mult() {
+        let elements = vec![
+            Element(1,1,2u64),
+            Element(1,2,1),
+            Element(2,1,3),
+            Element(2,2,7),
+            Element(3,3,11),
+            ];
+        // Create a new 2X2 matrix
+        let mat = Matrix::new(3,3,elements.clone()).unwrap();
+        let result: Vec<Element<u64>> = &mat * &vec![Element(1,1,7),Element(2,1,2),Element(3,1,1)];
+
+        //Check to make sure we got the same elements back
+        assert_eq!(result,vec![Element(1,1,16),Element(2,1,35),Element(3,1,11)]);
+
     }
 }
 mod matrix_mult {

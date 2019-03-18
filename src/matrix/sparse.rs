@@ -253,10 +253,12 @@ impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Default> Matrix<A> {
             .zip(self.rows.iter().skip(1));
         for (row,(&start,&end)) in row_ranges.enumerate() {
             let mut sum: A = Default::default();
-            for (column,&data) in  (1..).zip(self.data[start..end].iter()) {
+            //for (column,&data) in  (1..).zip(self.data[start..end].iter()) {
+            for (column,&data) in  self.columns[start..end].iter()
+                .zip(self.data[start..end].iter()) {
                 //We have to traverse to find the right element
                 if let Some(Element(_,_,other_data)) = other.iter()
-                    .filter(|Element(y,_,_)| *y==column)
+                    .filter(|Element(y,_,_)| *y==*column)
                     .next()
                 {
 
@@ -290,7 +292,7 @@ impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Default> Matrix<A> {
             .zip(self.rows.iter().skip(1));
         for (&start,&end) in row_ranges {
             let mut sum: A = Default::default();
-            for (i,&data) in  (start..end).zip(self.data[start..end].iter()) {
+            for (i,&data) in (start..end).zip(self.data[start..end].iter()) {
                 sum = sum + data*other[self.columns[i] - 1];
             }
             output.push(sum); 
@@ -338,9 +340,12 @@ impl Matrix<f64> {
 
 
             x = x.add(&big_p.vec_mul(&alpha)?);
+            //println!("X: {:?}",x);
 
             r = r.sub(&big_b.vec_mul(&alpha)?);
+            //println!("R: {:?}",r);
             let norm = r.norm();
+            //println!("i: {} NORM: {}",i,norm);
             if norm < final_norm {
                 return Ok(x);
             } else if i >= max_iterations {
@@ -352,6 +357,18 @@ impl Matrix<f64> {
                 let p = big_p.orthogonal_to(&r).normalize();
                 big_b.add_column(self.vec_mul(&p)?);
                 big_p.add_column(p);
+            } else {
+                //Restart
+                let result = self*&x;
+                r = b.sub(&result);
+                //println!("RESTARTED: {:?}",&result);
+                //let r_norm = r.norm();
+                //let final_norm = r_norm * tolerance;
+
+                // Our initial search direction, the first column of P
+                let p = r.normalize();
+                big_b = DenseMatrix::new(vec![self * &p]);
+                big_p = DenseMatrix::new(vec![p]);
             }
 
         }
