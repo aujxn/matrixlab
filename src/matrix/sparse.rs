@@ -17,6 +17,7 @@
 //    
 
 use std::ops::{Mul, Add};
+use std::fmt::{self,Display};
 use rayon::prelude::*;
 use crate::iter::{ElementsIter,MatrixIter};
 use crate::error::Error;
@@ -343,7 +344,7 @@ impl Matrix<f64> {
             if norm < final_norm {
                 return Ok(x);
             } else if i >= max_iterations {
-                return Err(Error::ExceededIterations);
+                return Err(Error::ExceededIterations(x));
             }
             i += 1;
 
@@ -414,3 +415,22 @@ for &Matrix<A> {
 
 }
 
+impl<A: MatrixElement + Display> Display for Matrix<A> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let elements: Vec<&A> = self.all_elements().collect();
+        //We want to print a row out at a time
+        let chunks = elements.chunks(self.num_columns());
+        for chunk in chunks {
+            write!(f,"[")?;
+            for (i,element) in chunk.iter().enumerate() {
+                write!(f,"{}",element)?;
+                //Print all except for the trailing comma
+                if i != chunk.len() - 1 {
+                    write!(f,",")?;
+                }
+            }
+            writeln!(f,"]")?;
+        }
+        Ok(())
+    }
+}

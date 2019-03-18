@@ -39,7 +39,8 @@ pub enum Error {
     /// get an error when reading from a file
     IOError(std::io::Error),
     InvalidFile,
-    ExceededIterations
+    /// This error contains our closest guess for GMRES
+    ExceededIterations(Vec<f64>)
 
 }
 impl PartialEq for Error {
@@ -52,7 +53,7 @@ impl PartialEq for Error {
             (DuplicateElements,DuplicateElements) => true,
             (IOError(_),IOError(_)) => true,
             (InvalidFile,InvalidFile) => true,
-            (ExceededIterations,ExceededIterations) => true,
+            (ExceededIterations(_),ExceededIterations(_)) => true,
             _ => false
         }
     }

@@ -36,6 +36,6 @@ mod matrix {
         let mat = Matrix::new(2,2,elements.clone()).unwrap();
 
         let result = mat.gmres(vec![1.1,0.9],100,1.0/1000000.0,50);
-        assert_eq!(result,Err(Error::ExceededIterations));
+        assert_eq!(result,Err(Error::ExceededIterations(vec![])));
     }
 }
