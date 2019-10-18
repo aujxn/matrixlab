@@ -2,12 +2,13 @@
 authors = ["Waylon Cude <waylon.cude@finzdani.net>"]
 edition = "2018"
 name = "matrixlab"
-version = "0.1.3"
+version = "0.1.4"
 license = "GPL-3.0-or-later"
 description = "A matrix library that supports both sparse and dense matrices."
 repository = "https://gitlab.com/waylon531/matrixlab"
 readme = "README.md"
 
+[badges]
 gitlab = { repository = "https://gitlab.com/waylon531/matrixlab", branch = "master" }
 
 [dependencies]

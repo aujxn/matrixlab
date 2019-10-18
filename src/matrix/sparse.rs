@@ -30,6 +30,12 @@ use super::MatrixElement;
 /// A point with y and x coordinates, as well as some data
 pub struct Element<A: MatrixElement>(pub usize,pub usize,pub A);
 
+impl<A: MatrixElement> Element<A> {
+    pub fn new(i: usize, j: usize, data: A) -> Element<A> {
+        Element(i,j,data)
+    }
+}
+
 #[derive(Clone,Debug,PartialEq)]
 ///A matrix in CSR format
 pub struct Matrix<A: MatrixElement> {
