@@ -1,0 +1,35 @@
+image: "rust:latest"
+
+# Optional: Pick zero or more services to be used on all builds.
+# Only needed when using a docker container to run your tests in.
+# Check out: http://docs.gitlab.com/ce/ci/docker/using_docker_images.html#what-is-service
+
+variables:
+    CARGO_HOME: $CI_PROJECT_DIR/cargo
+
+cache:
+  paths:
+    - target/
+    - cargo/
+
+stages:
+    - build
+    - test
+
+build:cargo:
+    stage: build
+    script:
+      - apt-get update -yqq
+        # Export path to include cargo binaries
+      - export PATH="$CARGO_HOME/bin:$PATH"
+      - rustc --version && cargo --version
+      - cargo build --release
+
+test:cargo:
+    stage: test
+    script:
+      - apt-get update -yqq
+        # Export path to include cargo binaries
+      - export PATH="$CARGO_HOME/bin:$PATH"
+      - rustc --version && cargo --version
+      - cargo test --release
