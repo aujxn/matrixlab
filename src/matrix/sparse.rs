@@ -123,6 +123,81 @@ impl<A: MatrixElement> Matrix<A> {
         })
     }
 
+    /// Create a new matrix from a set of points and some dimensions. This function does
+    /// not verify that there are no duplicates in your matrix and everything will probably break
+    /// if this happens, so make sure there are no duplicates before calling this.
+    pub fn new_unsafe(
+        num_rows: usize, 
+        num_columns: usize,
+        mut points: Vec<Element<A>>) 
+    -> Result<Matrix<A>,Error> {
+        //First we sort our points so we can insert them in order
+        points.par_sort_unstable_by(
+            |&Element(y1,x1,_),&Element(y2,x2,_)| {
+                if y1 != y2 {
+                    // Which row it's on is more important, so we check
+                    // for that first
+                    y1.cmp(&y2)
+                } else {
+                    // But if they're on the same row we just compare
+                    // which column the points are in
+                    x1.cmp(&x2)
+                }
+            });
+
+
+        // Allocate enough space for each of our arrays, we won't
+        // have to deal with unexpected allocations this way
+        let mut data: Vec<A> = Vec::with_capacity(points.len());
+        let mut rows = Vec::with_capacity(num_rows+1);
+        // The first element is always a 0
+        rows.push(0);
+        let mut columns = Vec::with_capacity(points.len());
+
+        // Then we insert those points into data, and fill in columns
+        // and data
+        //
+        // We start at row 1
+        let mut row_counter = 1;
+        let mut last_row_location = 0;
+        let mut counter = 0;
+        for Element(y,x,d) in points {
+            if x > num_columns || y > num_rows {
+                return Err(Error::ElementOutOfBounds);
+            }
+            data.push(d);                                    
+            columns.push(x);
+            // If we've gotten to a new row
+            if y != row_counter {
+                // Fill in the rows with some extra copies
+                let difference = y - row_counter;
+                for _ in 1 .. difference {
+                    rows.push(last_row_location);
+                }
+                // Push the location of our current row
+                rows.push(counter);
+                last_row_location = counter;
+                row_counter = y;
+            }
+
+            counter += 1;
+        }
+        for _ in row_counter ..= num_rows {
+            rows.push(data.len());
+        }
+
+        //rows.push(data.len());
+
+        Ok(Matrix {
+            rows,
+            data,
+            columns,
+            num_rows,
+            num_columns
+        })
+    }
+
+
     pub fn num_columns(&self) -> usize {
         self.num_columns
     }

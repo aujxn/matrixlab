@@ -19,6 +19,12 @@
 use crate::matrix::sparse::{Matrix,Element};
 use crate::matrix::MatrixElement;
 
+/// MatrixIter iterates over a sparse matrix. This iteration happens in order,
+/// starting at the beginning of the first row and moving to the right and down.
+/// If an element exists in the sparse matrix at that location then it is returned,
+/// otherwise a zero element is returned. Note that it's probably exponential time
+/// to run this over the whole matrix as I've implemented it in a particularly poor
+/// way.
 //NOTE: This implementation could be vastly improved, get is fairly slow
 pub struct MatrixIter<'a,A: MatrixElement> {
     matrix: &'a Matrix<A>,
@@ -71,6 +77,8 @@ impl<'a,A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a,A> {
     }
 }
 
+/// An ElementsIter iterates over all nonzero values in a sparse matrix. This is much
+/// faster than a MatrixIter and should be preferred in most situations.
 pub struct ElementsIter<'a,A: MatrixElement> {
     matrix: &'a Matrix<A>,
     row: usize,

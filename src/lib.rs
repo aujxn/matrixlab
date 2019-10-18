@@ -17,10 +17,18 @@
 //    
 
 
+/// Holds the error type for matrixlab
 pub mod error;
+
+/// Sparse and dense matricies
 pub mod matrix;
+
+/// Iterators over sparse matricies
 pub mod iter;
+
+/// Sparse and dense vectors
 pub mod vector;
+
 #[cfg(test)]
 mod test;
 
