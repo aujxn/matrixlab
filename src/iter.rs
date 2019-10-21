@@ -16,7 +16,7 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-use crate::matrix::sparse::{Element, Matrix};
+use crate::matrix::sparse::Matrix;
 use crate::matrix::MatrixElement;
 
 /// MatrixIter iterates over a sparse matrix. This iteration happens in order,
@@ -43,8 +43,8 @@ impl<'a, A: MatrixElement> MatrixIter<'a, A> {
     }
 }
 
-impl<'a, A: MatrixElement + Default> Iterator for MatrixIter<'a, A> {
-    type Item = Element<&'a A>;
+impl<'a, A: MatrixElement> Iterator for MatrixIter<'a, A> {
+    type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
         //can't panic because of manual bounds check
         //NOTE: will iterator modifiers like skip() break this?
@@ -61,7 +61,7 @@ impl<'a, A: MatrixElement + Default> Iterator for MatrixIter<'a, A> {
                 self.column += 1;
             }
             //can't panic because of manual bounds check
-            Some(Element(self.row, self.column, val))
+            Some((self.row, self.column, val))
         }
     }
 }
@@ -98,7 +98,7 @@ impl<'a, A: MatrixElement> ElementsIter<'a, A> {
 }
 
 impl<'a, A: MatrixElement> Iterator for ElementsIter<'a, A> {
-    type Item = Element<&'a A>;
+    type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
         let data = self.matrix.get_data().get(self.counter)?;
         let column = self.matrix.get_columns().get(self.counter)?;
@@ -115,7 +115,7 @@ impl<'a, A: MatrixElement> Iterator for ElementsIter<'a, A> {
         }
 
         self.counter += 1;
-        Some(Element(self.row, *column, data))
+        Some((self.row, *column, data))
     }
 }
 

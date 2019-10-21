@@ -295,7 +295,7 @@ impl<A: MatrixElement> Matrix<A> {
     ///     *val = 7
     ///     }
     ///
-    /// let data: Vec<i8> = matrix.elements().map(|vals| vals).collect();
+    /// let data: Vec<i8> = matrix.elements().map(|(i, j, val)| Element(i, j, *val)).collect();
     ///
     /// assert_eq!(data, vec![2, 42, 3, 7]);
     /// assert_eq!(matrix.get_mut(1, 1), Err(Error::NotFound));
@@ -335,14 +335,13 @@ impl<A: MatrixElement> Matrix<A> {
     /// # Examples
     ///
     /// ```
-    /// let data = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
-    /// let result = [(0, 0, 12), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
+    /// let data: Vec<i8> = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
+    /// let result: Vec<i8> = [(0, 0, 12), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
     ///
     /// let elements: Vec<Element> = data.iter().map(|x| Element(x)).collect();
-    /// let result: Vec<Element> = result.iter().map(|x| Element(x)).collect();
     /// let matrix = Matrix::new(4, 6, elements);
     ///
-    /// let data: Vec<i8> = matrix.elements().map(|vals| vals).collect();
+    /// let data: Vec<i8> = matrix.elements().map(|(i, j, val| *val).collect();
     ///
     /// assert_eq!(data, result);
     /// ```
@@ -359,9 +358,9 @@ impl<A: MatrixElement> Matrix<A> {
     ///
     /// let all_iter: Vec<i8> = matrix.all_elements()
     ///
-    /// assert_eq!(all_iter.next(), Some(&Element(0, 0, 12)));
-    /// assert_eq!(all_iter.next(), Some(&Element(0, 1, 0)));
-    /// assert_eq!(all_iter.skip(5).next(), Some(&Element(2, 2, 4)));
+    /// assert_eq!(all_iter.next(), Some(&(0, 0, &12)));
+    /// assert_eq!(all_iter.next(), Some(&(0, 1, &0)));
+    /// assert_eq!(all_iter.skip(5).next(), Some(&(2, 2, &4)));
     /// ```
     pub fn all_elements(&self) -> MatrixIter<A> {
         MatrixIter::new(&self)
@@ -373,7 +372,7 @@ impl<A: MatrixElement> Matrix<A> {
         let points = self
             .elements()
             // Swap the x and y coordinates for each point
-            .map(|Element(y, x, d)| Element(x, y, *d));
+            .map(|(y, x, d)| Element(x, y, *d));
         Matrix::new(self.num_columns, self.num_rows, points.collect())
             .expect("Invalid matrix transpose")
     }
@@ -450,7 +449,7 @@ impl <A: MatrixElement + std::ops::AddAssign> Matrix<A> {
     /// Calulates row sums and returns a vector with the sums
     pub fn row_sums(&self) -> std::vec::Vec<A> {
         let mut sums = vec![self.default; self.num_rows];
-        self.elements().for_each(|Element(i, _, v)| sums[i] += *v);
+        self.elements().for_each(|(i, _, v)| sums[i] += *v);
         sums
     }
 }
@@ -473,8 +472,8 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
                 //Get all points that are in the column
                 let column = other
                     .elements()
-                    .filter(|Element(_, x, _)| *x == i)
-                    .map(|Element(i, j, val)| Element(i, j, *val))
+                    .filter(|(_, x, _)| *x == i)
+                    .map(|(i, j, val)| Element(i, j, *val))
                     .collect::<Vec<Element<A>>>();
                 if let Ok(mut new_vec) = self.sparse_vec_mul(&column) {
                     //Modify all of the columns
@@ -678,7 +677,7 @@ impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Matrix<A>>
 
 impl<A: MatrixElement + Display> Display for Matrix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let elements: Vec<A> = self.all_elements().map(|Element(_, _, val)| *val).collect();
+        let elements: Vec<A> = self.all_elements().map(|(_, _, val)| *val).collect();
         //We want to print a row out at a time
         let chunks = elements.chunks(self.num_columns());
         for chunk in chunks {
