@@ -46,22 +46,21 @@ impl<'a, A: MatrixElement> MatrixIter<'a, A> {
 impl<'a, A: MatrixElement> Iterator for MatrixIter<'a, A> {
     type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
-        //can't panic because of manual bounds check
-        //NOTE: will iterator modifiers like skip() break this?
-        let val = self.matrix.get(self.row, self.column).unwrap();
-
         //check if we are in bounds
         if self.row == self.matrix.num_rows() {
             None
         } else {
-            if self.column == self.matrix.num_columns() {
+            let val = self.matrix.get(self.row, self.column).unwrap();
+            let row = self.row;
+            let col = self.column;
+            if self.column == self.matrix.num_columns() - 1 {
                 self.column = 0;
                 self.row += 1;
             } else {
                 self.column += 1;
             }
             //can't panic because of manual bounds check
-            Some((self.row, self.column, val))
+            Some((row, col, val))
         }
     }
 }

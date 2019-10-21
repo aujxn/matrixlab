@@ -16,11 +16,14 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-use super::dense::DenseMatrix;
+// gmres is broken
+//use super::dense::DenseMatrix;
+//use crate::vector::{FloatVectorTrait, Vector, VectorTrait};
+
 use super::MatrixElement;
 use crate::error::Error;
 use crate::iter::{ElementsIter, MatrixIter};
-use crate::vector::{FloatVectorTrait, Vector, VectorTrait};
+use crate::vector::Vector;
 use rayon::prelude::*;
 use std::fmt::{self, Display};
 use std::ops::{Add, Mul};
@@ -83,21 +86,27 @@ impl<A: MatrixElement> Matrix<A> {
     ///
     /// A valid matrix: 
     /// ```
-    /// let data = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let elements: Vec<Element> = data.iter().map(|x| Element(x)).collect();
-    /// let matrix = Matrix::new(4, 6, elements);
+    /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
-    /// assert_eq!(matrix.get(0, 0), Some(&12));
-    /// assert_eq!(matrix.get(3, 5), Some(&4));
-    /// assert_eq!(matrix.get(2, 2), Some(&3));
-    /// assert_eq!(matrix.get(1, 4), Some(&42));
+    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| Element(*i, *j, *val)).collect();
+    /// let matrix = Matrix::new(4, 6, elements).unwrap();
+    ///
+    /// assert_eq!(matrix.get(0, 0), Ok(&12));
+    /// assert_eq!(matrix.get(3, 5), Ok(&4));
+    /// assert_eq!(matrix.get(2, 2), Ok(&3));
+    /// assert_eq!(matrix.get(1, 4), Ok(&42));
     /// ```
     ///
     /// Bad data:
     /// ```
-    /// let out_of_bounds = vec![Element(3, 0, 10), Element(1, 1, 4)]
-    /// let duplicates = vec![Element(1, 1, 1), Element(1, 1, 5)]
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
+    ///
+    /// let out_of_bounds = vec![Element(3, 0, 10), Element(1, 1, 4)];
+    /// let duplicates = vec![Element(1, 1, 1), Element(1, 1, 5)];
     ///
     /// let out_of_bounds = Matrix::new(3, 3, out_of_bounds);
     /// let duplicates = Matrix::new(3, 3, duplicates);
@@ -147,30 +156,26 @@ impl<A: MatrixElement> Matrix<A> {
         //
         // We start at row 0
         let mut row_counter = 0;
-        let mut last_row_location = 0;
         let mut counter = 0;
 
-        for Element(y, x, d) in points {
-            if x > num_columns || y > num_rows {
+        for Element(i, j, v) in points {
+            if j >= num_columns || i >= num_rows {
                 return Err(Error::ElementOutOfBounds);
             }
-            data.push(d);
-            columns.push(x);
+            data.push(v);
+            columns.push(j);
             // If we've gotten to a new row
-            if y != row_counter {
+            if i != row_counter {
                 // Fill in the rows with some extra copies
-                let difference = y - row_counter;
-                for _ in 1..difference {
-                    rows.push(last_row_location);
+                let difference = i - row_counter;
+                for _ in 0..difference {
+                    rows.push(counter);
                 }
-                // Push the location of our current row
-                rows.push(counter);
-                last_row_location = counter;
-                row_counter = y;
+                row_counter = i;
             }
             counter += 1;
         }
-        for _ in row_counter..=num_rows {
+        for _ in row_counter..num_rows {
             rows.push(data.len());
         }
 
@@ -229,7 +234,6 @@ impl<A: MatrixElement> Matrix<A> {
         //
         // We start at row 0
         let mut row_counter = 0;
-        let mut last_row_location = 0;
         let mut counter = 0;
 
         for Element(i, j, v) in points {
@@ -239,17 +243,14 @@ impl<A: MatrixElement> Matrix<A> {
             if i != row_counter {
                 // Fill in the rows with some extra copies
                 let difference = i - row_counter;
-                for _ in 1..difference {
-                    rows.push(last_row_location);
+                for _ in 0..difference {
+                    rows.push(counter);
                 }
-                // Push the location of our current row
-                rows.push(counter);
-                last_row_location = counter;
                 row_counter = i;
             }
             counter += 1;
         }
-        for _ in row_counter..=num_rows {
+        for _ in row_counter..num_rows {
             rows.push(data.len());
         }
 
@@ -282,10 +283,13 @@ impl<A: MatrixElement> Matrix<A> {
     /// # Examples
     ///
     /// ```
-    /// let data = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let elements: Vec<Element> = data.iter().map(|x| Element(x)).collect();
-    /// let matrix = Matrix::new(4, 6, elements);
+    /// let data = [(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+    ///
+    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| Element(*i, *j, *val)).collect();
+    /// let mut matrix = Matrix::new(4, 6, elements).unwrap();
     ///
     /// if let Ok(val) = matrix.get_mut(0, 0) {
     ///     *val = 2
@@ -295,9 +299,9 @@ impl<A: MatrixElement> Matrix<A> {
     ///     *val = 7
     ///     }
     ///
-    /// let data: Vec<i8> = matrix.elements().map(|(i, j, val)| Element(i, j, *val)).collect();
+    /// let data: Vec<i64> = matrix.elements().map(|(_, _, val)| *val).collect();
     ///
-    /// assert_eq!(data, vec![2, 42, 3, 7]);
+    /// assert_eq!(data, vec![2i64, 42, 3, 7]);
     /// assert_eq!(matrix.get_mut(1, 1), Err(Error::NotFound));
     /// assert_eq!(matrix.get_mut(4, 4), Err(Error::ElementOutOfBounds));
     /// assert_eq!(matrix.get_mut(2, 6), Err(Error::ElementOutOfBounds));
@@ -335,13 +339,16 @@ impl<A: MatrixElement> Matrix<A> {
     /// # Examples
     ///
     /// ```
-    /// let data: Vec<i8> = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
-    /// let result: Vec<i8> = [(0, 0, 12), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let elements: Vec<Element> = data.iter().map(|x| Element(x)).collect();
-    /// let matrix = Matrix::new(4, 6, elements);
+    /// let data = vec![(0usize, 0usize, 12i8), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+    /// let result = vec![(0usize, 0usize, 12i8), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
     ///
-    /// let data: Vec<i8> = matrix.elements().map(|(i, j, val| *val).collect();
+    /// let elements: Vec<Element<i8>> = data.iter().map(|(i, j, val)| Element(*i, *j, *val)).collect();
+    /// let matrix = Matrix::new(4, 6, elements).unwrap();
+    ///
+    /// let data: Vec<(usize, usize, i8)> = matrix.elements().map(|(i, j, val)| (i, j, *val)).collect();
     ///
     /// assert_eq!(data, result);
     /// ```
@@ -349,18 +356,21 @@ impl<A: MatrixElement> Matrix<A> {
         ElementsIter::new(&self)
     }
 
-    /// Returns an iterator over all elements of the array, including the
+    /// Returns an iterator over all elements of the matrix, including the
     /// zero elements.
     /// # Examples
     ///
     /// ```
-    /// let matrix = Matrix::new(3, 3, vec![Element(0, 0, 12), Element(2, 2, 4));
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let all_iter: Vec<i8> = matrix.all_elements()
+    /// let matrix = Matrix::new(3, 3, vec![Element(0usize, 0usize, 12i64), Element(2, 2, 4)]).unwrap();
     ///
-    /// assert_eq!(all_iter.next(), Some(&(0, 0, &12)));
-    /// assert_eq!(all_iter.next(), Some(&(0, 1, &0)));
-    /// assert_eq!(all_iter.skip(5).next(), Some(&(2, 2, &4)));
+    /// let mut all_iter = matrix.all_elements();
+    ///
+    /// assert_eq!(all_iter.next(), Some((0, 0, &12)));
+    /// assert_eq!(all_iter.next(), Some((0, 1, &0)));
+    /// assert_eq!(all_iter.skip(6).next(), Some((2, 2, &4)));
     /// ```
     pub fn all_elements(&self) -> MatrixIter<A> {
         MatrixIter::new(&self)
@@ -404,10 +414,13 @@ impl<A: MatrixElement> Matrix<A> {
     /// # Examples
     ///
     /// ```
-    /// let data = [(0, 0, 12), (3, 5, 4), (2, 2, 3) (1, 4, 42)];
+    /// use matrixlab::error::Error;
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let elements: Vec<Element> = data.iter().map(|x| Element(x)).collect();
-    /// let matrix = Matrix::new(4, 6, elements);
+    /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+    ///
+    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| Element(*i, *j, *val)).collect();
+    /// let matrix = Matrix::new(4, 6, elements).unwrap();
     ///
     /// assert_eq!(matrix.get(0, 0), Ok(&12));
     /// assert_eq!(matrix.get(3, 5), Ok(&4));
@@ -523,11 +536,12 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
                 //Assume we're all in the same column
                 let &Element(_, column, _) = other.get(0).ok_or(Error::MalformedInput)?;
                 //Here we create the now element of our sparse vector.
-                output.push(Element(row + 1, column, sum));
+                output.push(Element(row, column, sum));
             }
         }
         Ok(output)
     }
+
     pub fn vec_mul(&self, other: &Vector<A>) -> Result<Vector<A>, Error> {
         //Check to make sure the the length matches up with row size
         if other.len() != self.num_columns() {
@@ -537,11 +551,13 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
         let mut output: Vec<A> = Vec::with_capacity(self.num_rows());
         //iter::repeat( Default::default()).take(self.num_rows).collect();
 
+        println!("{:?}", self.rows);
         let row_ranges = self.rows.iter().zip(self.rows.iter().skip(1));
         for (&start, &end) in row_ranges {
+            println!("{:?}, {:?}", start, end);
             let mut sum: A = Default::default();
             for (i, &data) in (start..end).zip(self.data[start..end].iter()) {
-                sum = sum + data * other[self.columns[i] - 1];
+                sum = sum + data * other[self.columns[i]];
             }
             output.push(sum);
         }
@@ -549,6 +565,7 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
     }
 }
 
+/* gmres is broken for now
 //We can only do gmres with f64 types
 impl Matrix<f64> {
     pub fn gmres(
@@ -621,6 +638,7 @@ impl Matrix<f64> {
         }
     }
 }
+*/
 
 // Multiplication by a scalar
 //impl<A: Mul<Output=A> + Copy + Sized + Send + Sync> Mul<A> for Matrix<A> {
