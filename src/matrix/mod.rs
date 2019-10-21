@@ -6,7 +6,6 @@ pub mod sparse;
 
 // These are traits every element needs to have
 // Numbers trivially fulfill this
-pub trait MatrixElement: Copy + Sized + Send + Sync + PartialEq {}
+pub trait MatrixElement: Default + Copy + Sized + Send + Sync + PartialEq {}
 
-impl<A: Copy + Sized + Send + Sync + PartialEq> MatrixElement for A {}
-
+impl<A: Default + Copy + Sized + Send + Sync + PartialEq> MatrixElement for A {}

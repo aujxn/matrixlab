@@ -14,8 +14,7 @@
 //
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//    
-
+//
 
 /// Holds the error type for matrixlab
 pub mod error;
@@ -32,19 +31,18 @@ pub mod vector;
 #[cfg(test)]
 mod test;
 
-
-use matrix::sparse::{Matrix,Element};
 use error::Error;
+use matrix::sparse::{Element, Matrix};
 
 use std::fs::File;
-use std::io::{BufReader,BufRead};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 /// Takes in a matrix market format file and gives back the
 /// resulting matrix. This will always return a matrix filled
 /// with floating point values to make parsing simpler. Matricies
 /// with complex values will error out.
-pub fn from_file(filename: &Path) -> Result<Matrix<f64>,Error> {
+pub fn from_file(filename: &Path) -> Result<Matrix<f64>, Error> {
     // Read the file in and set up a reader over the lines
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
@@ -52,7 +50,7 @@ pub fn from_file(filename: &Path) -> Result<Matrix<f64>,Error> {
 
     // First line tells us what kind of matrix it is
     let first = lines.next().ok_or(Error::InvalidFile)??;
-    let (ty,prop) = get_type_and_prop(&first)?;
+    let (ty, prop) = get_type_and_prop(&first)?;
 
     // next_line lives outside the loop so we can save the first
     // non-comment line
@@ -63,47 +61,50 @@ pub fn from_file(filename: &Path) -> Result<Matrix<f64>,Error> {
         next_line = lines.next().ok_or(Error::InvalidFile)??;
         if !next_line.starts_with("%") {
             //We're done parsing comments
-            break;                
+            break;
         }
     }
 
-    let elements = next_line.split_whitespace()
-                            .map(|e| e.parse::<usize>()
-                                      .map_err(|_| Error::InvalidFile))
-                            .collect::<Result<Vec<usize>,Error>>()?;
+    let elements = next_line
+        .split_whitespace()
+        .map(|e| e.parse::<usize>().map_err(|_| Error::InvalidFile))
+        .collect::<Result<Vec<usize>, Error>>()?;
     // If we don't have enough elements
     if elements.len() < 3 {
         return Err(Error::InvalidFile);
     }
 
-    let (rows,columns,num_entries) = (elements[0],elements[1],elements[2]);
+    let (rows, columns, num_entries) = (elements[0], elements[1], elements[2]);
 
     // And finally the entries
     // All of these become floating point numbers
     // TODO: we probably could add support for multiple types
     let mut entries: Vec<Element<f64>> = Vec::with_capacity(num_entries);
-    for _ in 0 .. num_entries {
+    for _ in 0..num_entries {
         let line = lines.next().ok_or(Error::InvalidFile)??;
         //Here we read in the row and column
-        let (row,column,data) = read_line(line,&ty)?;
+        let (row, column, data) = read_line(line, &ty)?;
         match prop {
-            Prop::General => {},
+            Prop::General => {}
             // Push the symmetric entry, unless we're on the diagonal
-            _ => if column != row { entries.push(Element(column,row,data)) }
+            _ => {
+                if column != row {
+                    entries.push(Element(column, row, data))
+                }
+            }
         }
-        entries.push(Element(row,column,data));
-
+        entries.push(Element(row, column, data));
     }
     // And finally we create the new matrix
 
-    Matrix::new(rows,columns,entries)
+    Matrix::new(rows, columns, entries)
 }
-#[derive(PartialEq,Eq)]
+#[derive(PartialEq, Eq)]
 enum Type {
     Real,
     Integer,
     Complex,
-    Pattern
+    Pattern,
 }
 fn word_to_type(s: &str) -> Option<Type> {
     Some(match s {
@@ -111,15 +112,15 @@ fn word_to_type(s: &str) -> Option<Type> {
         "integer" => Type::Integer,
         "complex" => Type::Complex,
         "pattern" => Type::Pattern,
-        _ => return None
+        _ => return None,
     })
 }
-#[derive(PartialEq,Eq)]
+#[derive(PartialEq, Eq)]
 enum Prop {
     General,
     Symmetric,
     SkewSymmetric,
-    Hermitian
+    Hermitian,
 }
 fn word_to_prop(s: &str) -> Option<Prop> {
     Some(match s {
@@ -127,43 +128,40 @@ fn word_to_prop(s: &str) -> Option<Prop> {
         "symmetric" => Prop::Symmetric,
         "skew-symmetric" => Prop::SkewSymmetric,
         "hermitian" => Prop::Hermitian,
-        _ => return None
-
+        _ => return None,
     })
 }
-fn get_type_and_prop(first: &String) -> Result<(Type,Prop),Error> {
+fn get_type_and_prop(first: &String) -> Result<(Type, Prop), Error> {
     let mut words = first.split_whitespace();
     if "%%MatrixMarket" != words.next().ok_or(Error::InvalidFile)? {
-        return Err(Error::InvalidFile)
+        return Err(Error::InvalidFile);
     }
     // We only support sparse matricies, so check for those here
     if "matrix" != words.next().ok_or(Error::InvalidFile)? {
-        return Err(Error::InvalidFile)
+        return Err(Error::InvalidFile);
     }
     if "coordinate" != words.next().ok_or(Error::InvalidFile)? {
-        return Err(Error::InvalidFile)
+        return Err(Error::InvalidFile);
     }
-    let ty = word_to_type(words.next().ok_or(Error::InvalidFile)?)
-                .ok_or(Error::InvalidFile)?;
-    let prop = word_to_prop(words.next().ok_or(Error::InvalidFile)?)
-                .ok_or(Error::InvalidFile)?;
-    Ok((ty,prop))
+    let ty = word_to_type(words.next().ok_or(Error::InvalidFile)?).ok_or(Error::InvalidFile)?;
+    let prop = word_to_prop(words.next().ok_or(Error::InvalidFile)?).ok_or(Error::InvalidFile)?;
+    Ok((ty, prop))
 }
-fn read_line(line: String, ty: &Type) -> Result<(usize,usize,f64),Error> {
+fn read_line(line: String, ty: &Type) -> Result<(usize, usize, f64), Error> {
     //We probably could probably do some code reuse but for now
     //it's mostly copy + paste
     let words = line.split_whitespace();
-    let elements = words.clone().take(2)
-                        .map(|e| e.parse::<usize>()
-                             .map_err(|_| Error::InvalidFile))
-                        .collect::<Result<Vec<usize>,Error>>()?;
+    let elements = words
+        .clone()
+        .take(2)
+        .map(|e| e.parse::<usize>().map_err(|_| Error::InvalidFile))
+        .collect::<Result<Vec<usize>, Error>>()?;
     // If we don't have enough elements
-    if elements.len() < 2  {
+    if elements.len() < 2 {
         return Err(Error::InvalidFile);
     }
 
-    let (row,column) = (elements[0],elements[1]);
-
+    let (row, column) = (elements[0], elements[1]);
 
     let data: f64 = match ty {
         Type::Pattern => 1.0,
@@ -172,5 +170,5 @@ fn read_line(line: String, ty: &Type) -> Result<(usize,usize,f64),Error> {
             word.parse::<f64>()?
         }
     };
-    Ok((row,column,data))
+    Ok((row, column, data))
 }

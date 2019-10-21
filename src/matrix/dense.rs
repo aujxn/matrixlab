@@ -14,24 +14,22 @@
 //
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//    
+//
 
-use std::ops::{Mul,Add,Sub};
-use crate::matrix::MatrixElement;
-use crate::vector::{Vector,VectorTrait,FloatVectorTrait};
 use crate::error::Error;
+use crate::matrix::MatrixElement;
+use crate::vector::{FloatVectorTrait, Vector, VectorTrait};
 use rayon::prelude::*;
+use std::ops::{Add, Mul, Sub};
 
-#[derive(PartialEq,Debug)]
+#[derive(PartialEq, Debug)]
 pub struct DenseMatrix<A> {
-    columns: Vec<Vector<A>>
+    columns: Vec<Vector<A>>,
 }
 impl<A> DenseMatrix<A> {
     /// Creates a matrix from a vector of columns
     pub fn new(columns: Vec<Vector<A>>) -> DenseMatrix<A> {
-        DenseMatrix {
-            columns
-        }
+        DenseMatrix { columns }
     }
     pub fn add_column(&mut self, column: Vector<A>) {
         self.columns.push(column);
@@ -41,26 +39,25 @@ impl<A> DenseMatrix<A> {
         // at the number of rows in the first column
         match self.columns.get(0) {
             Some(column) => column.len(),
-            None => 0
+            None => 0,
         }
     }
     pub fn num_columns(&self) -> usize {
         self.columns.len()
     }
-
 }
 //Maybe todo: should this be copy?
 impl<A: Clone> DenseMatrix<A> {
     pub fn transpose(&self) -> DenseMatrix<A> {
         // Set up the columns for our new matrix
         let mut columns = Vec::with_capacity(self.num_rows());
-        for _ in 0 .. self.num_rows() {
+        for _ in 0..self.num_rows() {
             columns.push(Vec::with_capacity(self.num_columns()));
         }
 
         // Set up the elements of the columns of our new array
         for column in self.columns.iter() {
-            for (i,entry) in column.iter().enumerate() {
+            for (i, entry) in column.iter().enumerate() {
                 columns[i].push(entry.clone());
             }
         }
@@ -69,58 +66,63 @@ impl<A: Clone> DenseMatrix<A> {
     }
     /// Creates a matrix from a vector of rows
     pub fn from_rows(rows: Vec<Vector<A>>) -> DenseMatrix<A> {
-        DenseMatrix {
-            columns: rows
-        }.transpose()
+        DenseMatrix { columns: rows }.transpose()
     }
 }
 
 //TODO: Make this generic?
-impl<A: MatrixElement + Mul<Output=A> + Add<Output=A> + Sub<Output=A> + Default> DenseMatrix<A> {
+impl<A: MatrixElement + Mul<Output = A> + Add<Output = A> + Sub<Output = A>>
+    DenseMatrix<A>
+{
     pub fn scale(&self, other: &A) -> DenseMatrix<A> {
-        let columns = self.columns.par_iter()
-            .map_with(other, 
-                      |&mut o, column| column.iter()
-                                             .map(|e| *o**e)
-                                             .collect())
+        let columns = self
+            .columns
+            .par_iter()
+            .map_with(other, |&mut o, column| {
+                column.iter().map(|e| *o * *e).collect()
+            })
             .collect();
         DenseMatrix::new(columns)
     }
-    pub fn vec_mul(&self, other: &Vector<A>) -> Result<Vector<A>,Error> {
+    pub fn vec_mul(&self, other: &Vector<A>) -> Result<Vector<A>, Error> {
         // If the size of the vector doesn't match the number of
         // columns then error out
         if other.len() != self.columns.len() {
             return Err(Error::SizeMismatch);
         }
-        Ok(self.columns.par_iter()
+        Ok(self
+            .columns
+            .par_iter()
             .zip(other.par_iter())
             // Is there any way to make this a normal iterator
             // and still be able to flatten?
             // Is collecting it slow?
-            .map(|(column,scale)| column.iter()
-                                        .map(|x| *x**scale)
-                                        .collect::<Vec<A>>())
+            .map(|(column, scale)| column.iter().map(|x| *x * *scale).collect::<Vec<A>>())
             .reduce(
-                || [Default::default()]
-                   .into_iter()
-                   .cycle()
-                   .take(self.num_rows())
-                   .cloned()
-                   .collect(),
-                |x,y| x.add(&y)))
-            //.collect()
+                || {
+                    [Default::default()]
+                        .into_iter()
+                        .cycle()
+                        .take(self.num_rows())
+                        .cloned()
+                        .collect()
+                },
+                |x, y| x.add(&y),
+            ))
+        //.collect()
     }
-    pub fn safe_mul(&self, other: &DenseMatrix<A>) -> Result<DenseMatrix<A>,Error> {
+    pub fn safe_mul(&self, other: &DenseMatrix<A>) -> Result<DenseMatrix<A>, Error> {
         if self.num_columns() != other.num_rows() {
             return Err(Error::SizeMismatch);
         }
 
-        let new_cols = other.columns.par_iter()
+        let new_cols = other
+            .columns
+            .par_iter()
             .map_with(self, |&mut s, col| s.vec_mul(col))
-            .collect::<Result<Vec<Vec<A>>,Error>>()?;
+            .collect::<Result<Vec<Vec<A>>, Error>>()?;
 
         Ok(DenseMatrix::new(new_cols))
-        
     }
 }
 impl DenseMatrix<f64> {
@@ -130,31 +132,33 @@ impl DenseMatrix<f64> {
         // Start off with a copy of b, to modify to create our solutions
         let mut solutions: Vec<f64> = b.clone();
         // Start with the last column
-        for (i,column) in self.columns.iter().rev().enumerate() {
+        for (i, column) in self.columns.iter().rev().enumerate() {
             //Normalize our last element
-            let last_element = b.len()-1-i;
+            let last_element = b.len() - 1 - i;
             solutions[last_element] /= column[last_element];
             //And skip i elements because they're all zero
             //But we have to reverse the list first
-            for (j,element) in column.iter().rev().skip(1+i).enumerate() {
+            for (j, element) in column.iter().rev().skip(1 + i).enumerate() {
                 //Move up b as we iterate
-                let last_element = b.len()-1-i;
+                let last_element = b.len() - 1 - i;
                 //And move up b as we go up each column
                 //This probably won't overflow
                 //TODO ^ figure out if this is exploitable
-                let current_element = last_element - 1-j;
-                solutions[current_element] -= solutions[last_element] * element;                                            
+                let current_element = last_element - 1 - j;
+                solutions[current_element] -= solutions[last_element] * element;
             }
         }
         solutions
     }
     /// This solves for B*y = r
-    pub fn least_squares(&self, r: &Vector<f64>) -> Result<Vector<f64>,Error> {
+    pub fn least_squares(&self, r: &Vector<f64>) -> Result<Vector<f64>, Error> {
         //Solve for Q, for our QR factorization
         let q = self.factor_q();
         let q_transpose = q.transpose();
         let rhs = q_transpose.vec_mul(&r)?;
-        let r = q_transpose.safe_mul(self).expect("Error in least squares, multiplication failed");;
+        let r = q_transpose
+            .safe_mul(self)
+            .expect("Error in least squares, multiplication failed");;
 
         //Now solve for Ra = rhs, then return a
         Ok(r.backsolve(&rhs))
@@ -176,7 +180,7 @@ impl DenseMatrix<f64> {
     }
     /// Returns a new vector, orthogonal to all vectors currently in the
     /// array and to the other vector
-    pub fn orthogonal_to(&self,other: &Vector<f64>) -> Vector<f64> {
+    pub fn orthogonal_to(&self, other: &Vector<f64>) -> Vector<f64> {
         let mut final_vec = other.clone();
         for column in self.columns.iter() {
             final_vec = final_vec.sub(&column.scale(other.inner(column)));

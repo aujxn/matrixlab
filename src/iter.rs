@@ -14,9 +14,9 @@
 //
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//    
+//
 
-use crate::matrix::sparse::{Matrix,Element};
+use crate::matrix::sparse::{Element, Matrix};
 use crate::matrix::MatrixElement;
 
 /// MatrixIter iterates over a sparse matrix. This iteration happens in order,
@@ -26,100 +26,101 @@ use crate::matrix::MatrixElement;
 /// to run this over the whole matrix as I've implemented it in a particularly poor
 /// way.
 //NOTE: This implementation could be vastly improved, get is fairly slow
-pub struct MatrixIter<'a,A: MatrixElement> {
+pub struct MatrixIter<'a, A: MatrixElement> {
     matrix: &'a Matrix<A>,
     row: usize,
     column: usize,
-
 }
-impl<'a,A: MatrixElement > MatrixIter<'a,A> {
-    pub fn new(matrix: &'a Matrix<A>) -> MatrixIter<'a,A> {
+
+impl<'a, A: MatrixElement> MatrixIter<'a, A> {
+    pub fn new(matrix: &'a Matrix<A>) -> MatrixIter<'a, A> {
         MatrixIter {
-            row: 1,
-            column: 1,
+            row: 0,
+            column: 0,
             //Set up a default value we can return references to
-            matrix
+            matrix,
         }
     }
 }
-impl<'a,A: MatrixElement + Default> Iterator for MatrixIter<'a,A> {
-    type Item = A;
-    // We can easily calculate the remaining number of iterations.
+
+impl<'a, A: MatrixElement + Default> Iterator for MatrixIter<'a, A> {
+    type Item = Element<&'a A>;
     fn next(&mut self) -> Option<Self::Item> {
+        //can't panic because of manual bounds check
+        //NOTE: will iterator modifiers like skip() break this?
+        let val = self.matrix.get(self.row, self.column).unwrap();
 
-        let result = self.matrix.get(self.row,self.column);
-
-
-        self.column += 1;
-        //If we go past the last row
-        if self.row > self.matrix.num_rows() {
-            //Then stop iterating
-            return None;
-        //If we go past the end of the row
-        } else if self.column > self.matrix.num_columns() {
-            //Reset the columns
-            self.column = 1;
-            //And increment the rows
-            self.row += 1;
+        //check if we are in bounds
+        if self.row == self.matrix.num_rows() {
+            None
+        } else {
+            if self.column == self.matrix.num_columns() {
+                self.column = 0;
+                self.row += 1;
+            } else {
+                self.column += 1;
+            }
+            //can't panic because of manual bounds check
+            Some(Element(self.row, self.column, val))
         }
-        //TODO: clone bad
-        Some(match result {
-            Some(x) => x.clone(),
-            None => Default::default()
-        })
-
     }
 }
-impl<'a,A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a,A> {
-    // We can easily calculate the remaining number of iterations.
+
+impl<'a, A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a, A> {
     fn len(&self) -> usize {
-        self.matrix.num_rows()*self.matrix.num_columns()
+        self.matrix.num_rows() * self.matrix.num_columns()
     }
 }
 
 /// An ElementsIter iterates over all nonzero values in a sparse matrix. This is much
 /// faster than a MatrixIter and should be preferred in most situations.
-pub struct ElementsIter<'a,A: MatrixElement> {
+pub struct ElementsIter<'a, A: MatrixElement> {
     matrix: &'a Matrix<A>,
     row: usize,
-    counter: usize
-
+    counter: usize,
+    next_row_start: usize,
 }
-impl<'a,A: MatrixElement> ElementsIter<'a,A> {
-    pub fn new(matrix: &'a Matrix<A>) -> ElementsIter<'a,A> {
+
+impl<'a, A: MatrixElement> ElementsIter<'a, A> {
+    pub fn new(matrix: &'a Matrix<A>) -> ElementsIter<'a, A> {
+        let next_row_start;
+        match matrix.get_rows().get(1) {
+            Some(i) => next_row_start = *i,
+            None => next_row_start = matrix.nnz(),
+        }
         ElementsIter {
             matrix,
             row: 0,
-            counter: 0
+            counter: 0,
+            next_row_start,
         }
     }
-
 }
-impl<'a,A: MatrixElement> Iterator for ElementsIter<'a,A> {
-    //Should this return a whole point or a reference?
-    type Item = Element<A>;
-    // We can easily calculate the remaining number of iterations.
+
+impl<'a, A: MatrixElement> Iterator for ElementsIter<'a, A> {
+    type Item = Element<&'a A>;
     fn next(&mut self) -> Option<Self::Item> {
         let data = self.matrix.get_data().get(self.counter)?;
         let column = self.matrix.get_columns().get(self.counter)?;
-        
-        loop {
-            let next_row_start = self.matrix.get_rows().get(self.row+1)?;
-            if self.counter >= *next_row_start {
-                self.row += 1; 
-            } else {
-                break;
+
+        //when counter hits next row start then we have reached a new row
+        //loop until next row is larger to find row of current data
+        while self.counter == self.next_row_start {
+            self.row += 1;
+            match self.matrix.get_rows().get(self.row + 1) {
+                Some(i) => self.next_row_start = *i,
+                //if last row then iterate through the rest of the data
+                None => self.next_row_start = self.matrix.nnz(),
             }
         }
-        
-        let row = self.row + 1;
+
         self.counter += 1;
-        Some(Element(row,*column,*data))
+        Some(Element(self.row, *column, data))
     }
 }
-impl<'a,A: MatrixElement> ExactSizeIterator for ElementsIter<'a,A> {
-    // We can easily calculate the remaining number of iterations.
+
+impl<'a, A: MatrixElement> ExactSizeIterator for ElementsIter<'a, A> {
     fn len(&self) -> usize {
-        self.matrix.number_of_nonzero()
+        self.matrix.nnz()
     }
 }
