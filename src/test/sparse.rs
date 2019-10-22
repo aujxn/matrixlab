@@ -7,7 +7,10 @@ mod matrix {
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
 
-        let new_elements: Vec<Element<u64>> = mat.elements().map(|(i, j, val)| Element(i, j, *val)).collect();
+        let new_elements: Vec<Element<u64>> = mat
+            .elements()
+            .map(|(i, j, val)| Element(i, j, *val))
+            .collect();
 
         //Check to make sure we got the same elements back
         assert_eq!(elements, new_elements);
@@ -34,7 +37,10 @@ mod matrix {
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
 
-        let new_elements: Vec<Element<u64>> = mat.elements().map(|(i, j, val)| Element(i, j, *val)).collect();
+        let new_elements: Vec<Element<u64>> = mat
+            .elements()
+            .map(|(i, j, val)| Element(i, j, *val))
+            .collect();
 
         //Check to make sure we got the same elements back
         assert_eq!(elements, new_elements);
@@ -196,7 +202,10 @@ mod iter {
         let elements = vec![Element(0, 0, 2i64), Element(0, 1, 1)];
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
-        let all_elements = mat.all_elements().map(|(_, _, val)| *val).collect::<Vec<i64>>();
+        let all_elements = mat
+            .all_elements()
+            .map(|(_, _, val)| *val)
+            .collect::<Vec<i64>>();
         print!("{:?}", all_elements);
         assert_eq!(vec![2i64, 1, 0, 0], all_elements);
     }

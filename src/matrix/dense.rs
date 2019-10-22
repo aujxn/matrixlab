@@ -71,9 +71,7 @@ impl<A: Clone> DenseMatrix<A> {
 }
 
 //TODO: Make this generic?
-impl<A: MatrixElement + Mul<Output = A> + Add<Output = A> + Sub<Output = A>>
-    DenseMatrix<A>
-{
+impl<A: MatrixElement + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatrix<A> {
     pub fn scale(&self, other: &A) -> DenseMatrix<A> {
         let columns = self
             .columns

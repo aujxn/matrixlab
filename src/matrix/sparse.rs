@@ -55,7 +55,7 @@ impl<A: MatrixElement> Element<A> {
 /// - The column vector indices correspond to the data vector
 /// indices. The value is the column of that element.
 ///
-/// This storage format is efficient for memory usage and 
+/// This storage format is efficient for memory usage and
 /// operations on sparse matrices. Storage of dense matrices
 /// with this format should be avoided. Insertion into existing
 /// sparse matrices is painfully inefficient, requiring shifting
@@ -84,7 +84,7 @@ impl<A: MatrixElement> Matrix<A> {
     ///
     /// # Examples
     ///
-    /// A valid matrix: 
+    /// A valid matrix:
     /// ```
     /// use matrixlab::error::Error;
     /// use matrixlab::matrix::sparse::{Element, Matrix};
@@ -193,7 +193,7 @@ impl<A: MatrixElement> Matrix<A> {
     ///
     /// # Warning
     ///
-    /// This function does not verify that there are no duplicates in 
+    /// This function does not verify that there are no duplicates in
     /// your matrix and everything will probably break if this happens,
     /// so make sure there are no duplicates before calling this.
     ///
@@ -319,8 +319,7 @@ impl<A: MatrixElement> Matrix<A> {
         let row_end;
         if row < max_row {
             row_end = *self.rows.get(row + 1).unwrap();
-        }
-        else {
+        } else {
             row_end = self.data.len();
         }
 
@@ -330,7 +329,7 @@ impl<A: MatrixElement> Matrix<A> {
                 return Ok(self.data.get_mut(i).unwrap());
             }
         }
-        return Err(Error::NotFound)
+        return Err(Error::NotFound);
     }
 
     /// Returns an iterator over all the nonzero elements of the array
@@ -410,7 +409,7 @@ impl<A: MatrixElement> Matrix<A> {
     /// Returns a reference to the value. If no value exists then
     /// 0 (default) is returned.
     /// If out of bounds then error is returned.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -443,8 +442,7 @@ impl<A: MatrixElement> Matrix<A> {
         let row_end;
         if row < max_row {
             row_end = *self.rows.get(row + 1).unwrap();
-        }
-        else {
+        } else {
             row_end = self.data.len();
         }
 
@@ -458,7 +456,7 @@ impl<A: MatrixElement> Matrix<A> {
     }
 }
 
-impl <A: MatrixElement + std::ops::AddAssign> Matrix<A> {
+impl<A: MatrixElement + std::ops::AddAssign> Matrix<A> {
     /// Calulates row sums and returns a vector with the sums
     pub fn row_sums(&self) -> std::vec::Vec<A> {
         let mut sums = vec![self.default; self.num_rows];
@@ -657,9 +655,7 @@ impl<A: Mul<Output = A> + MatrixElement> Mul<A> for Matrix<A> {
 }
 
 // Multiplication by a vector
-impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<A>>
-    for &Matrix<A>
-{
+impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<A>> for &Matrix<A> {
     //Should this be an option or should it panic?
     type Output = Vector<A>;
     fn mul(self, other: &Vector<A>) -> Self::Output {
@@ -669,9 +665,7 @@ impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<A>>
 }
 
 // Multiplication by a sparse vector
-impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<Element<A>>>
-    for &Matrix<A>
-{
+impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<Element<A>>> for &Matrix<A> {
     //Should this be an option or should it panic?
     type Output = Vector<Element<A>>;
     fn mul(self, other: &Vector<Element<A>>) -> Self::Output {
@@ -680,9 +674,7 @@ impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Vector<Element<A
 }
 
 // Multiplication by another matrix
-impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Matrix<A>>
-    for &Matrix<A>
-{
+impl<A: Mul<Output = A> + Add<Output = A> + MatrixElement> Mul<&Matrix<A>> for &Matrix<A> {
     //Should this be an option or should it panic?
     type Output = Matrix<A>;
     fn mul(self, other: &Matrix<A>) -> Self::Output {

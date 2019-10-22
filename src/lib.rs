@@ -16,6 +16,123 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
+/*!
+
+matrixlab is a small linear algebra library for rust featuring storage
+and manipulation of sparse/dense matrices/vectors.
+
+The plan for this library is to feature graph processing algorithms for
+sparse networks in the form of adjacency matrices.
+
+## Features
+
+- Valid functions like multiplication and addition between scalars,
+sparse and dense matrices, and sparse and dense vectors
+
+- Multiplication, addition, subtraction of sparse/dense matrices with
+sparse/dense matrices or vectors
+
+- Different iterators over sparse and dense matrices
+
+- gmres, least squares, and backsolving of linear systems
+
+## Plans
+
+- Graph coarsening through modularity functional
+
+- Graph embedding algorithms
+
+- Basic ML algorithms
+
+## Examples
+
+Sparse matrix construction
+```
+use matrixlab::error::Error;
+use matrixlab::matrix::sparse::{Element, Matrix};
+
+let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+
+let elements: Vec<Element<i64>> = data
+    .iter()
+    .map(|(i, j, val)| Element(*i, *j, *val))
+    .collect();
+
+let matrix = Matrix::new(4, 6, elements).unwrap();
+
+assert_eq!(matrix.get(0, 0), Ok(&12));
+assert_eq!(matrix.get(3, 5), Ok(&4));
+assert_eq!(matrix.get(2, 2), Ok(&3));
+assert_eq!(matrix.get(1, 4), Ok(&42));
+```
+
+Sparse matrix - dense vector multiplication
+```
+use matrixlab::error::Error;
+use matrixlab::matrix::sparse::{Element, Matrix};
+
+let elements = vec![
+    Element(0, 0, 2u64),
+    Element(0, 1, 1),
+    Element(1, 0, 3),
+    Element(1, 1, 7),
+    Element(2, 2, 11),
+    ];
+
+let mat = Matrix::new(3, 3, elements).unwrap();
+let vec = vec![Element(0, 0, 7), Element(1, 0, 2), Element(2, 0, 1)];
+
+let result: Vec<Element<u64>> = &mat * &vec;
+let expected = vec![Element(0, 0, 16), Element(1, 0, 35), Element(2, 0, 11)];
+
+assert_eq!(result, expected);
+```
+
+Sparse matrix - sparse matrix multiplication
+```
+use matrixlab::error::Error;
+use matrixlab::matrix::sparse::{Element, Matrix};
+/*  _____   _______     _________
+ * |2 0 3| |1 2 0 1|   |11 7 12 2|
+ * |1 1 0|x|2 0 2 0| = | 3 2  2 1|
+ * |3 0 1| |3 1 4 0|   | 6 7  4 3|
+ *  ¯¯¯¯¯   ¯¯¯¯¯¯¯     ¯¯¯¯¯¯¯¯¯
+ */
+let a = ((3usize, 3usize),
+    vec![(0usize, 0usize, 2i64),
+        (0, 2, 3), (1, 0, 1),
+        (1, 1, 1), (2, 0, 3),
+        (2, 2, 1)]);
+
+let b = ((3usize, 4usize),
+    vec![(0usize, 0usize, 1i64),
+        (0, 1, 2), (0, 3, 1),
+        (1, 0, 2), (1, 2, 2),
+        (2, 0, 3), (2, 1, 1),
+        (2, 2, 4)]);
+
+let c = vec![11i64, 7, 12, 2, 3, 2, 2, 1, 6, 7, 4, 3];
+
+let matrices: Vec<Matrix<i64>> = vec![a, b]
+    .iter()
+    .map(|((n, m), points)| {
+        let elements = points
+            .iter()
+            .map(|(i, j, val)| Element(*i, *j, *val))
+            .collect();
+            Matrix::new(*n, *m, elements).unwrap()
+    })
+    .collect();
+
+let result: Matrix<i64> = &matrices[0] * &matrices[1];
+let result: Vec<i64> = result.elements()
+    .map(|(_, _, val)| *val)
+    .collect();
+
+assert_eq!(c, result);
+```
+*/
+
 /// Holds the error type for matrixlab
 pub mod error;
 
@@ -99,6 +216,7 @@ pub fn from_file(filename: &Path) -> Result<Matrix<f64>, Error> {
 
     Matrix::new(rows, columns, entries)
 }
+
 #[derive(PartialEq, Eq)]
 enum Type {
     Real,
@@ -106,6 +224,7 @@ enum Type {
     Complex,
     Pattern,
 }
+
 fn word_to_type(s: &str) -> Option<Type> {
     Some(match s {
         "real" => Type::Real,
@@ -115,6 +234,7 @@ fn word_to_type(s: &str) -> Option<Type> {
         _ => return None,
     })
 }
+
 #[derive(PartialEq, Eq)]
 enum Prop {
     General,
@@ -122,6 +242,7 @@ enum Prop {
     SkewSymmetric,
     Hermitian,
 }
+
 fn word_to_prop(s: &str) -> Option<Prop> {
     Some(match s {
         "general" => Prop::General,
@@ -131,6 +252,7 @@ fn word_to_prop(s: &str) -> Option<Prop> {
         _ => return None,
     })
 }
+
 fn get_type_and_prop(first: &String) -> Result<(Type, Prop), Error> {
     let mut words = first.split_whitespace();
     if "%%MatrixMarket" != words.next().ok_or(Error::InvalidFile)? {
@@ -147,6 +269,7 @@ fn get_type_and_prop(first: &String) -> Result<(Type, Prop), Error> {
     let prop = word_to_prop(words.next().ok_or(Error::InvalidFile)?).ok_or(Error::InvalidFile)?;
     Ok((ty, prop))
 }
+
 fn read_line(line: String, ty: &Type) -> Result<(usize, usize, f64), Error> {
     //We probably could probably do some code reuse but for now
     //it's mostly copy + paste
