@@ -570,6 +570,21 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
 
 //We can only do gmres with f64 types
 impl Matrix<f64> {
+    /// Solves a linear system using the generalized minimal residual method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use matrixlab::matrix::sparse::{Element, Matrix};
+    ///
+    /// let elements = vec![Element(0, 0, 2f64), Element(1, 1, 2f64), Element(0, 1, 1.0)];
+    /// let mat = Matrix::new(2, 2, elements.clone()).unwrap();
+    ///    
+    /// let result = mat
+    ///     .gmres(vec![3.0, 2.0], 100000, 1.0 / 1000000.0, 50)
+    ///     .unwrap();
+    ///     assert_eq!(result, vec![1.0, 1.0]);
+    /// ```
     pub fn gmres(
         &self,
         b: Vector<f64>,
