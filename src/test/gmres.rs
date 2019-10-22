@@ -1,10 +1,9 @@
-/* gmres is broken for now
 mod matrix {
     use crate::error::Error;
     use crate::matrix::sparse::{Element, Matrix};
     #[test]
     fn iteration_test() {
-        let elements = vec![Element(1, 1, 2f64), Element(2, 2, 2f64), Element(1, 2, 1.0)];
+        let elements = vec![Element(0, 0, 2f64), Element(1, 1, 2f64), Element(0, 1, 1.0)];
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
 
@@ -13,7 +12,7 @@ mod matrix {
     }
     #[test]
     fn exact_test() {
-        let elements = vec![Element(1, 1, 2f64), Element(2, 2, 2f64), Element(1, 2, 1.0)];
+        let elements = vec![Element(0, 0, 2f64), Element(1, 1, 2f64), Element(0, 1, 1.0)];
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
 
@@ -25,10 +24,10 @@ mod matrix {
     #[test]
     fn failure_test() {
         let elements = vec![
-            Element(1, 1, 1f64),
-            Element(1, 2, 1f64),
-            Element(2, 1, 0f64),
-            Element(2, 2, 0.0),
+            Element(0, 0, 1f64),
+            Element(0, 1, 1f64),
+            Element(1, 0, 0f64),
+            Element(1, 1, 0.0),
         ];
         // Create a new 2X2 matrix
         let mat = Matrix::new(2, 2, elements.clone()).unwrap();
@@ -37,4 +36,3 @@ mod matrix {
         assert_eq!(result, Err(Error::ExceededIterations(vec![])));
     }
 }
-*/

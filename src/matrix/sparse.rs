@@ -16,14 +16,12 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-// gmres is broken
-//use super::dense::DenseMatrix;
-//use crate::vector::{FloatVectorTrait, Vector, VectorTrait};
 
 use super::MatrixElement;
 use crate::error::Error;
 use crate::iter::{ElementsIter, MatrixIter};
-use crate::vector::Vector;
+use super::dense::DenseMatrix;
+use crate::vector::{FloatVectorTrait, Vector, VectorTrait};
 use rayon::prelude::*;
 use std::fmt::{self, Display};
 use std::ops::{Add, Mul};
@@ -416,9 +414,16 @@ impl<A: MatrixElement> Matrix<A> {
     /// use matrixlab::error::Error;
     /// use matrixlab::matrix::sparse::{Element, Matrix};
     ///
-    /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+    /// let data = vec![
+    ///     (0usize, 0usize, 12i64),
+    ///     (3, 5, 4), (2, 2, 3),
+    ///     (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| Element(*i, *j, *val)).collect();
+    /// let elements: Vec<Element<i64>> = data
+    ///     .iter()
+    ///     .map(|(i, j, val)| Element(*i, *j, *val))
+    ///     .collect();
+    ///
     /// let matrix = Matrix::new(4, 6, elements).unwrap();
     ///
     /// assert_eq!(matrix.get(0, 0), Ok(&12));
@@ -563,7 +568,6 @@ impl<A: MatrixElement + Mul<Output = A> + Add<Output = A>> Matrix<A> {
     }
 }
 
-/* gmres is broken for now
 //We can only do gmres with f64 types
 impl Matrix<f64> {
     pub fn gmres(
@@ -573,7 +577,7 @@ impl Matrix<f64> {
         tolerance: f64,
         max_search_directions: usize,
     ) -> Result<Vector<f64>, Error> {
-        // If the rows don't match up the error out straight away
+        // If the rows don't match up error out straight away
         if self.num_columns() != self.num_rows() {
             return Err(Error::SizeMismatch);
         }
@@ -588,8 +592,7 @@ impl Matrix<f64> {
             .into_iter()
             .cycle()
             .take(self.num_columns())
-            // Why do I need a cloned?
-            .cloned()
+            .map(|x| *x)
             .collect();
         let mut r = b.sub(&(self * &x));
         let r_norm = r.norm();
@@ -636,7 +639,6 @@ impl Matrix<f64> {
         }
     }
 }
-*/
 
 // Multiplication by a scalar
 //impl<A: Mul<Output=A> + Copy + Sized + Send + Sync> Mul<A> for Matrix<A> {

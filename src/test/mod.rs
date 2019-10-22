@@ -1,3 +1,3 @@
 mod dense;
-//mod gmres;
+mod gmres;
 mod sparse;
