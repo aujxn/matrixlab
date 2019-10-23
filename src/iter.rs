@@ -16,8 +16,8 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-use crate::matrix::sparse::Matrix;
-use crate::matrix::MatrixElement;
+use crate::matrix::sparse::SparseMatrix;
+use crate::Element;
 
 /// MatrixIter iterates over a sparse matrix. This iteration happens in order,
 /// starting at the beginning of the first row and moving to the right and down.
@@ -26,14 +26,14 @@ use crate::matrix::MatrixElement;
 /// to run this over the whole matrix as I've implemented it in a particularly poor
 /// way.
 //NOTE: This implementation could be vastly improved, get is fairly slow
-pub struct MatrixIter<'a, A: MatrixElement> {
-    matrix: &'a Matrix<A>,
+pub struct MatrixIter<'a, A: Element> {
+    matrix: &'a SparseMatrix<A>,
     row: usize,
     column: usize,
 }
 
-impl<'a, A: MatrixElement> MatrixIter<'a, A> {
-    pub fn new(matrix: &'a Matrix<A>) -> MatrixIter<'a, A> {
+impl<'a, A: Element> MatrixIter<'a, A> {
+    pub fn new(matrix: &'a SparseMatrix<A>) -> MatrixIter<'a, A> {
         MatrixIter {
             row: 0,
             column: 0,
@@ -43,7 +43,7 @@ impl<'a, A: MatrixElement> MatrixIter<'a, A> {
     }
 }
 
-impl<'a, A: MatrixElement> Iterator for MatrixIter<'a, A> {
+impl<'a, A: Element> Iterator for MatrixIter<'a, A> {
     type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
         //check if we are in bounds
@@ -65,7 +65,7 @@ impl<'a, A: MatrixElement> Iterator for MatrixIter<'a, A> {
     }
 }
 
-impl<'a, A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a, A> {
+impl<'a, A: Element> ExactSizeIterator for MatrixIter<'a, A> {
     fn len(&self) -> usize {
         self.matrix.num_rows() * self.matrix.num_columns()
     }
@@ -73,15 +73,15 @@ impl<'a, A: MatrixElement + Default> ExactSizeIterator for MatrixIter<'a, A> {
 
 /// An ElementsIter iterates over all nonzero values in a sparse matrix. This is much
 /// faster than a MatrixIter and should be preferred in most situations.
-pub struct ElementsIter<'a, A: MatrixElement> {
-    matrix: &'a Matrix<A>,
+pub struct ElementsIter<'a, A: Element> {
+    matrix: &'a SparseMatrix<A>,
     row: usize,
     counter: usize,
     next_row_start: usize,
 }
 
-impl<'a, A: MatrixElement> ElementsIter<'a, A> {
-    pub fn new(matrix: &'a Matrix<A>) -> ElementsIter<'a, A> {
+impl<'a, A: Element> ElementsIter<'a, A> {
+    pub fn new(matrix: &'a SparseMatrix<A>) -> ElementsIter<'a, A> {
         let next_row_start;
         match matrix.get_rows().get(1) {
             Some(i) => next_row_start = *i,
@@ -96,7 +96,7 @@ impl<'a, A: MatrixElement> ElementsIter<'a, A> {
     }
 }
 
-impl<'a, A: MatrixElement> Iterator for ElementsIter<'a, A> {
+impl<'a, A: Element> Iterator for ElementsIter<'a, A> {
     type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
         let data = self.matrix.get_data().get(self.counter)?;
@@ -118,7 +118,7 @@ impl<'a, A: MatrixElement> Iterator for ElementsIter<'a, A> {
     }
 }
 
-impl<'a, A: MatrixElement> ExactSizeIterator for ElementsIter<'a, A> {
+impl<'a, A: Element> ExactSizeIterator for ElementsIter<'a, A> {
     fn len(&self) -> usize {
         self.matrix.nnz()
     }
