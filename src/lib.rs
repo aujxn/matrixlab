@@ -48,7 +48,7 @@ sparse/dense matrices or vectors
 Sparse matrix construction
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatElement, SparseMatrix};
+use matrixlab::matrix::sparse::{MatElement, SparseMat};
 
 let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
 
@@ -57,7 +57,7 @@ let elements: Vec<MatElement<i64>> = data
     .map(|(i, j, val)| MatElement(*i, *j, *val))
     .collect();
 
-let matrix = SparseMatrix::new(4, 6, elements).unwrap();
+let matrix = SparseMat::new(4, 6, elements).unwrap();
 
 assert_eq!(matrix.get(0, 0), Ok(&12));
 assert_eq!(matrix.get(3, 5), Ok(&4));
@@ -68,7 +68,7 @@ assert_eq!(matrix.get(1, 4), Ok(&42));
 Sparse matrix - dense vector multiplication
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatElement, SparseMatrix};
+use matrixlab::matrix::sparse::{MatElement, SparseMat};
 
 let elements = vec![
     MatElement(0, 0, 2u64),
@@ -78,7 +78,7 @@ let elements = vec![
     MatElement(2, 2, 11),
     ];
 
-let mat = SparseMatrix::new(3, 3, elements).unwrap();
+let mat = SparseMat::new(3, 3, elements).unwrap();
 let vec = vec![MatElement(0, 0, 7), MatElement(1, 0, 2), MatElement(2, 0, 1)];
 
 let result: Vec<MatElement<u64>> = &mat * &vec;
@@ -90,7 +90,7 @@ assert_eq!(result, expected);
 Sparse matrix - sparse matrix multiplication
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatElement, SparseMatrix};
+use matrixlab::matrix::sparse::{MatElement, SparseMat};
 /*  _____   _______     _________
  * |2 0 3| |1 2 0 1|   |11 7 12 2|
  * |1 1 0|x|2 0 2 0| = | 3 2  2 1|
@@ -112,18 +112,18 @@ let b = ((3usize, 4usize),
 
 let c = vec![11i64, 7, 12, 2, 3, 2, 2, 1, 6, 7, 4, 3];
 
-let matrices: Vec<SparseMatrix<i64>> = vec![a, b]
+let matrices: Vec<SparseMat<i64>> = vec![a, b]
     .iter()
     .map(|((n, m), points)| {
         let elements = points
             .iter()
             .map(|(i, j, val)| MatElement(*i, *j, *val))
             .collect();
-            SparseMatrix::new(*n, *m, elements).unwrap()
+            SparseMat::new(*n, *m, elements).unwrap()
     })
     .collect();
 
-let result: SparseMatrix<i64> = &matrices[0] * &matrices[1];
+let result: SparseMat<i64> = &matrices[0] * &matrices[1];
 let result: Vec<i64> = result.elements()
     .map(|(_, _, val)| *val)
     .collect();
@@ -148,7 +148,7 @@ pub mod vector;
 mod test;
 
 use error::Error;
-use matrix::sparse::{SparseMatrix, MatElement};
+use matrix::sparse::{SparseMat, MatElement};
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -164,7 +164,7 @@ impl<A: Default + Copy + Sized + Send + Sync + PartialEq> Element for A {}
 /// resulting matrix. This will always return a matrix filled
 /// with floating point values to make parsing simpler. Matricies
 /// with complex values will error out.
-pub fn from_file(filename: &Path) -> Result<SparseMatrix<f64>, Error> {
+pub fn from_file(filename: &Path) -> Result<SparseMat<f64>, Error> {
     // Read the file in and set up a reader over the lines
     let f = File::open(filename)?;
     let reader = BufReader::new(f);
@@ -219,7 +219,7 @@ pub fn from_file(filename: &Path) -> Result<SparseMatrix<f64>, Error> {
     }
     // And finally we create the new matrix
 
-    SparseMatrix::new(rows, columns, entries)
+    SparseMat::new(rows, columns, entries)
 }
 
 #[derive(PartialEq, Eq)]

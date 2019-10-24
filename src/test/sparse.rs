@@ -1,11 +1,11 @@
 mod matrix {
     use crate::error::Error;
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn matrix_creation() {
         let elements = vec![MatElement(0, 0, 2u64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
 
         let new_elements: Vec<MatElement<u64>> = mat
             .elements()
@@ -20,7 +20,7 @@ mod matrix {
     fn out_of_bounds_matrix_creation() {
         let elements = vec![MatElement(1, 1, 2u64), MatElement(1, 3, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone());
+        let mat = SparseMat::new(2, 2, elements.clone());
 
         //Check to make sure that the right error got returned
         assert_eq!(mat, Err(Error::MatElementOutOfBounds));
@@ -35,7 +35,7 @@ mod matrix {
             MatElement(1, 1, 7),
         ];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
 
         let new_elements: Vec<MatElement<u64>> = mat
             .elements()
@@ -50,7 +50,7 @@ mod matrix {
     fn matrix_sum() {
         let elements = vec![MatElement(0, 0, 2u64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements).unwrap();
+        let mat = SparseMat::new(2, 2, elements).unwrap();
 
         let sum: u64 = mat.elements().fold(0, |acc, (_, _, val)| acc + *val);
 
@@ -60,12 +60,12 @@ mod matrix {
 }
 
 mod transpose {
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn transpose() {
         let elements = vec![MatElement(0, 0, 2u64), MatElement(0, 1, 17)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements).unwrap();
+        let mat = SparseMat::new(2, 2, elements).unwrap();
         let new_mat = mat.transpose();
 
         let new_elements: Vec<(usize, usize, &u64)> = new_mat.elements().collect();
@@ -76,12 +76,12 @@ mod transpose {
 }
 
 mod vector_mult {
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn mult() {
         let elements = vec![MatElement(0, 0, 2u64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
 
         let result: Vec<u64> = &mat * &vec![2, 1];
 
@@ -98,7 +98,7 @@ mod vector_mult {
             MatElement(1, 1, 7),
         ];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
         let result: Vec<u64> = &mat * &vec![1, 1];
 
         //Check to make sure we got the same elements back
@@ -115,7 +115,7 @@ mod vector_mult {
             MatElement(2, 2, 11),
         ];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(3, 3, elements.clone()).unwrap();
+        let mat = SparseMat::new(3, 3, elements.clone()).unwrap();
         let result: Vec<u64> = &mat * &vec![7, 2, 1];
 
         //Check to make sure we got the same elements back
@@ -124,12 +124,12 @@ mod vector_mult {
 }
 
 mod sparse_vector_mult {
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn mult() {
         let elements = vec![MatElement(0, 0, 2u64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
 
         let result: Vec<MatElement<u64>> = &mat * &vec![(0, 1), (1, 1)];
 
@@ -146,7 +146,7 @@ mod sparse_vector_mult {
             MatElement(1, 1, 7),
         ];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
         let result: Vec<MatElement<u64>> = &mat * &vec![MatElement(0, 0, 1), MatElement(1, 0, 1)];
 
         //Check to make sure we got the same elements back
@@ -163,7 +163,7 @@ mod sparse_vector_mult {
             MatElement(2, 2, 11),
         ];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(3, 3, elements.clone()).unwrap();
+        let mat = SparseMat::new(3, 3, elements.clone()).unwrap();
         let result: Vec<MatElement<u64>> =
             &mat * &vec![MatElement(0, 0, 7), MatElement(1, 0, 2), MatElement(2, 0, 1)];
 
@@ -176,19 +176,19 @@ mod sparse_vector_mult {
 }
 
 mod matrix_mult {
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn mult() {
         let elements = vec![MatElement(0, 0, 2i64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
         let new_mat = mat.transpose();
 
-        let result: SparseMatrix<i64> = &mat * &new_mat;
+        let result: SparseMat<i64> = &mat * &new_mat;
 
         let elements = vec![MatElement(0, 0, 5i64)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
 
         //Check to make sure we got the same elements back
         assert_eq!(result, mat);
@@ -196,12 +196,12 @@ mod matrix_mult {
 }
 
 mod iter {
-    use crate::matrix::sparse::{MatElement, SparseMatrix};
+    use crate::matrix::sparse::{MatElement, SparseMat};
     #[test]
     fn all_elements_iter() {
         let elements = vec![MatElement(0, 0, 2i64), MatElement(0, 1, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
+        let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
         let all_elements = mat
             .all_elements()
             .map(|(_, _, val)| *val)

@@ -16,7 +16,7 @@
 //    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-use crate::matrix::sparse::SparseMatrix;
+use crate::matrix::sparse::SparseMat;
 use crate::Element;
 
 /// MatrixIter iterates over a sparse matrix. This iteration happens in order,
@@ -27,13 +27,13 @@ use crate::Element;
 /// way.
 //NOTE: This implementation could be vastly improved, get is fairly slow
 pub struct MatrixIter<'a, A: Element> {
-    matrix: &'a SparseMatrix<A>,
+    matrix: &'a SparseMat<A>,
     row: usize,
     column: usize,
 }
 
 impl<'a, A: Element> MatrixIter<'a, A> {
-    pub fn new(matrix: &'a SparseMatrix<A>) -> MatrixIter<'a, A> {
+    pub fn new(matrix: &'a SparseMat<A>) -> MatrixIter<'a, A> {
         MatrixIter {
             row: 0,
             column: 0,
@@ -74,14 +74,14 @@ impl<'a, A: Element> ExactSizeIterator for MatrixIter<'a, A> {
 /// An ElementsIter iterates over all nonzero values in a sparse matrix. This is much
 /// faster than a MatrixIter and should be preferred in most situations.
 pub struct ElementsIter<'a, A: Element> {
-    matrix: &'a SparseMatrix<A>,
+    matrix: &'a SparseMat<A>,
     row: usize,
     counter: usize,
     next_row_start: usize,
 }
 
 impl<'a, A: Element> ElementsIter<'a, A> {
-    pub fn new(matrix: &'a SparseMatrix<A>) -> ElementsIter<'a, A> {
+    pub fn new(matrix: &'a SparseMat<A>) -> ElementsIter<'a, A> {
         let next_row_start;
         match matrix.get_rows().get(1) {
             Some(i) => next_row_start = *i,

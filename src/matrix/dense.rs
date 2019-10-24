@@ -18,25 +18,24 @@
 
 use crate::error::Error;
 use crate::Element;
-use crate::vector::{FloatVectorTrait, VectorTrait};
-use crate::vector::dense::DenseVector;
+use crate::vector::dense::DenseVec;
 use rayon::prelude::*;
 use std::ops::{Add, Mul, Sub};
 
 #[derive(PartialEq, Debug)]
 /// A dense matrix is a vector of dense vectors.
 /// Each dense vector is a column of the matrix.
-pub struct DenseMatrix<A> {
-    columns: Vec<DenseVector<A>>,
+pub struct DenseMat<A> {
+    columns: Vec<DenseVec<A>>,
 }
 
-impl<A> DenseMatrix<A> {
+impl<A> DenseMat<A> {
     /// Creates a matrix from a vector of columns
-    pub fn new(columns: Vec<DenseVector<A>>) -> DenseMatrix<A> {
-        DenseMatrix { columns }
+    pub fn new(columns: Vec<DenseVec<A>>) -> DenseMat<A> {
+        DenseMat { columns }
     }
 
-    pub fn add_column(&mut self, column: DenseVector<A>) {
+    pub fn add_column(&mut self, column: DenseVec<A>) {
         self.columns.push(column);
     }
 
@@ -55,8 +54,8 @@ impl<A> DenseMatrix<A> {
 }
 
 //Maybe todo: should this be copy?
-impl<A: Clone> DenseMatrix<A> {
-    pub fn transpose(&self) -> DenseMatrix<A> {
+impl<A: Clone> DenseMat<A> {
+    pub fn transpose(&self) -> DenseMat<A> {
         // Set up the columns for our new matrix
         let mut columns = Vec::with_capacity(self.num_rows());
         for _ in 0..self.num_rows() {
@@ -70,17 +69,17 @@ impl<A: Clone> DenseMatrix<A> {
             }
         }
 
-        DenseMatrix::new(columns)
+        DenseMat::new(columns)
     }
     /// Creates a matrix from a vector of rows
-    pub fn from_rows(rows: Vec<DenseVector<A>>) -> DenseMatrix<A> {
-        DenseMatrix { columns: rows }.transpose()
+    pub fn from_rows(rows: Vec<DenseVec<A>>) -> DenseMat<A> {
+        DenseMat { columns: rows }.transpose()
     }
 }
 
 //TODO: Make this generic?
-impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatrix<A> {
-    pub fn scale(&self, other: &A) -> DenseMatrix<A> {
+impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMat<A> {
+    pub fn scale(&self, other: &A) -> DenseMat<A> {
         let columns = self
             .columns
             .par_iter()
@@ -88,10 +87,10 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatr
                 column.iter().map(|e| *o * *e).collect()
             })
             .collect();
-        DenseMatrix::new(columns)
+        DenseMat::new(columns)
     }
     
-    pub fn vec_mul(&self, other: &DenseVector<A>) -> Result<DenseVector<A>, Error> {
+    pub fn vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
         // If the size of the vector doesn't match the number of
         // columns then error out
         if other.len() != self.columns.len() {
@@ -119,7 +118,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatr
         //.collect()
     }
 
-    pub fn safe_mul(&self, other: &DenseMatrix<A>) -> Result<DenseMatrix<A>, Error> {
+    pub fn safe_mul(&self, other: &DenseMat<A>) -> Result<DenseMat<A>, Error> {
         if self.num_columns() != other.num_rows() {
             return Err(Error::SizeMismatch);
         }
@@ -130,13 +129,13 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatr
             .map_with(self, |&mut s, col| s.vec_mul(col))
             .collect::<Result<Vec<Vec<A>>, Error>>()?;
 
-        Ok(DenseMatrix::new(new_cols))
+        Ok(DenseMat::new(new_cols))
     }
 }
-impl DenseMatrix<f64> {
+impl DenseMat<f64> {
     /// This takes an upper triangular matrix, and solves it to
     /// equal b
-    pub fn backsolve(&self, b: &DenseVector<f64>) -> DenseVector<f64> {
+    pub fn backsolve(&self, b: &DenseVec<f64>) -> DenseVec<f64> {
         // Start off with a copy of b, to modify to create our solutions
         let mut solutions: Vec<f64> = b.clone();
         // Start with the last column
@@ -160,7 +159,7 @@ impl DenseMatrix<f64> {
     }
 
     /// This solves for B*y = r
-    pub fn least_squares(&self, r: &DenseVector<f64>) -> Result<DenseVector<f64>, Error> {
+    pub fn least_squares(&self, r: &DenseVec<f64>) -> Result<DenseVec<f64>, Error> {
         //Solve for Q, for our QR factorization
         let q = self.factor_q();
         let q_transpose = q.transpose();
@@ -173,8 +172,8 @@ impl DenseMatrix<f64> {
         Ok(r.backsolve(&rhs))
     }
 
-    pub fn factor_q(&self) -> DenseMatrix<f64> {
-        let mut q_vectors: Vec<DenseVector<f64>> = Vec::with_capacity(self.num_columns());
+    pub fn factor_q(&self) -> DenseMat<f64> {
+        let mut q_vectors: Vec<DenseVec<f64>> = Vec::with_capacity(self.num_columns());
         for column in self.columns.iter() {
             let mut maybe_q = column.clone();
             for orthogonal in q_vectors.iter() {
@@ -186,12 +185,12 @@ impl DenseMatrix<f64> {
             q_vectors.push(q);
         }
 
-        DenseMatrix::new(q_vectors)
+        DenseMat::new(q_vectors)
     }
 
     /// Returns a new vector, orthogonal to all vectors currently in the
     /// array and to the other vector
-    pub fn orthogonal_to(&self, other: &DenseVector<f64>) -> DenseVector<f64> {
+    pub fn orthogonal_to(&self, other: &DenseVec<f64>) -> DenseVec<f64> {
         let mut final_vec = other.clone();
         for column in self.columns.iter() {
             final_vec = final_vec.sub(&column.scale(other.inner(column)));
