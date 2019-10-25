@@ -1,41 +1,71 @@
 use crate::Element;
+use super::dense::DenseVec;
 use crate::error::Error;
 use std::ops::{Add, Mul, Sub};
+use rayon::prelude::*;
 
 /// Sparse vectors are index value pairs.
 /// Manipulate sparse vectors at your own risk,
 /// index values must stay in order.
 pub struct SparseVec<A> {
-    data: Vec<A>,
-    indices: Vec<usize>,
-    length: usize,
+    pub data: Vec<A>,
+    pub indices: Vec<usize>,
+    pub length: usize,
     default: A,
 }
 
 impl<A: Element> SparseVec<A> {
-    fn new(data: Vec<A>, indices: Vec<usize>, length: usize) -> Result<SparseVec<A>, Error> {
-        indices.iter().zip(indices.iter().skip(1)).for_each(|(i, j)| {
-            if i > j { 
-                return Err(Error::MalformedInput);
+    /// Constructs a sparse vector. Checks to make sure that the indices
+    /// provided are in order and in range. The error types are MalformedInput
+    /// and ElementOutOfBounds accordingly.
+    pub fn new(data: Vec<A>, indices: Vec<usize>, length: usize) -> Result<Self, Error> {
+        for (&i, &j) in indices.iter().zip(indices.iter().skip(1)) {
+            if i >= j { 
+                return Err(Error::MalformedInput)
             } else if j >= length {
-                return Err(Error::ElementOutOfBounds);
+                return Err(Error::ElementOutOfBounds)
             }
-        });
+        }
 
         let default = A::default();
-        SparseVec {
+        Ok(SparseVec {
             data,
             indices,
             length,
             default,
+        })
+    }
+
+    /// Constructs a sparse matrix from a Vec of index, value pairs.
+    /// This method sorts the data for you and should be avoided
+    /// if your data is alreaded sorted.
+    ///
+    /// Possible error type is ElementOutOfBounds.
+    fn new_unsorted(mut data: Vec<(usize, A)>, length: usize) -> Result<Self, Error> {
+        data.par_sort_unstable_by(|&(i1, _), &(i2, _)| i1.cmp(&i2));
+        let (indices, data): (Vec<_>, Vec<_>) = data.iter().cloned().unzip();
+
+        for (&i, &j) in indices.iter().zip(indices.iter().skip(1)) {
+            if i >= j { 
+                return Err(Error::MalformedInput)
+            } else if j >= length {
+                return Err(Error::ElementOutOfBounds)
+            }
         }
+
+        let default = A::default();
+        Ok(SparseVec {
+            data,
+            indices,
+            length,
+            default,
+        })
     }
 
-    fn new_unsorted(data: Vec<(usize, A)>, length: usize) -> SparseVec<A> {
-    }
-
-    fn new_unsafe(data: Vec<A>, indices: Vec<usize>, length: usize) -> SparseVec<A> {
-        let default = A::default;
+    /// Constructs a sparse matrix from values and indices provided.
+    /// Performs no validity checks.
+    fn new_unsafe(data: Vec<A>, indices: Vec<usize>, length: usize) -> Self {
+        let default = A::default();
         let length = data.len();
         SparseVec {
             data,
@@ -47,19 +77,23 @@ impl<A: Element> SparseVec<A> {
 }
 
 impl SparseVec<f64> {
+    /// Calculates the Euclidean norm of a sparse vector.
+    /// This is the magnitude of the vector.
     fn norm(&self) -> f64 {
         self.data.iter().map(|x| x * x).fold(0.0, |x, y| x + y).sqrt()
     }
 
-    fn normalize(&self) -> SparseVec<f64> {
+    /// Evaluates the unit vector in the same direction.
+    fn normalize(&self) -> Self {
         self.scale(1.0 / (self.norm()))
     }
 }
 
 impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec<A> {
+    /// Adds two sparse vectors by adding elements with the same index.
     fn add(&self, other: &Self) -> Self {
-        let len1 = self.len();
-        let len2 = other.len();
+        let len1 = self.data.len();
+        let len2 = other.data.len();
         let mut i = 0;
         let mut j = 0;
 
@@ -75,7 +109,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec
                 indices.push(index1);
                 i += 1;
             } else if index1 > index2 {
-                data.push(other[j]);
+                data.push(other.data[j]);
                 indices.push(index2);
                 j += 1;
             } else {
@@ -95,19 +129,27 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec
             indices.extend_from_slice(&self.indices[j..]);
         }
 
-        let len = self.length;
+        let length = self.length;
         let default = A::default();
         SparseVec {
             data,
             indices,
-            len,
+            length,
             default,
         }
     }
 
-    fn sub(&self, other: &SparseVec<A>) -> SparseVec<A> {
-        let len1 = self.len();
-        let len2 = other.len();
+    /// Adds a sparse vector and a dense vector.
+    /// This returns a dense vector because the result
+    /// is likely more dense than the arguments
+    fn add_dense(&self, other: &DenseVec<A>) -> DenseVec<A> {
+        other.add_sparse(&self)
+    }
+
+    /// Subtracts a sparse vector from a sparse vector.
+    fn sub(&self, other: &Self) -> Self {
+        let len1 = self.data.len();
+        let len2 = other.data.len();
         let mut i = 0;
         let mut j = 0;
 
@@ -123,7 +165,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec
                 indices.push(index1);
                 i += 1;
             } else if index1 > index2 {
-                data.push(A::default() - other[j]);
+                data.push(A::default() - other.data[j]);
                 indices.push(index2);
                 j += 1;
             } else {
@@ -136,44 +178,70 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec
         }
 
         if i == len1 && j < len2 {
-            &other.data[j..].iter().zip(&other.indices[j..].iter()).for_each(|(val, i)| {
-                data.push(A::default() - val);
-                indices.push(i);
+            other.data[j..].into_iter().zip(other.indices[j..].into_iter()).for_each(|(val, i)| {
+                data.push(A::default() - *val);
+                indices.push(*i);
             });
         } else if i < len1 {
-            &self.data[i..].iter().zip(&self.indices[i..].iter()).for_each(|(val, i)| {
-                data.push(val);
-                indices.push(i);
+            self.data[i..].into_iter().zip(self.indices[i..].into_iter()).for_each(|(val, i)| {
+                data.push(*val);
+                indices.push(*i);
             });
         }
 
-        let len = self.length;
+        let length = self.length;
         let default = A::default();
         SparseVec {
             data,
             indices,
-            len,
+            length,
             default,
         }
     }
 
-    fn scale(&self, scale: A) -> SparseVec<A> {
+    /// Subtracts a dense vector from a sparse vector.
+    /// Returns a dense vector because the result is likely dense.
+    fn sub_dense(&self, other: &DenseVec<A>) -> DenseVec<A> {
+        let mut data = Vec::with_capacity(self.length);
+        let mut sparse_iter = self.indices.iter().zip(self.data.iter());
+        let mut current = sparse_iter.next();
+
+        for (i, &val) in other.data.iter().enumerate() {
+            match current {
+                Some((&j, &sparse_val)) => {
+                    if i < j {
+                        data.push(A::default() - val);
+                    } else if i == j {
+                        data.push(sparse_val - val);
+                        current = sparse_iter.next();
+                    }
+                },
+                None => data.push(A::default() - val),
+            }
+        }
+        DenseVec::new(data)
+    }
+
+    /// Multiplies every element in the vector by a scalar.
+    fn scale(&self, scale: A) -> Self {
         let data = self.data.iter().map(|&x| x * scale).collect();
         let indices = self.indices.clone();
-        let len = self.length;
+        let length = self.length;
         let default = A::default();
 
         SparseVec {
             data,
             indices,
-            len,
+            length,
             default,
         }
     }
 
-    fn inner(&self, other: &SparseVec<A>) -> A {
-        let len1 = self.len();
-        let len2 = other.len();
+    /// Calculates the inner product of two sparse vectors.
+    /// This is the dot product.
+    fn inner(&self, other: &Self) -> A {
+        let len1 = self.data.len();
+        let len2 = other.data.len();
         let mut i = 0;
         let mut j = 0;
 
@@ -194,6 +262,12 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> SparseVec
             }
         }
 
-        data.sum()
+        data.iter().fold(A::default(), |sum, &val| sum + val)
+    }
+
+    /// Calculates the inner product of a sparse and dense vector.
+    /// This is the dot product.
+    fn inner_dense(&self, other: &DenseVec<A>) -> A {
+        other.inner_sparse(&self)
     }
 }
