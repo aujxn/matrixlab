@@ -1,61 +1,58 @@
-//
-//    matrixlab, a library for working with sparse matricies
-//    Copyright (C) 2019 Waylon Cude
-//
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-//
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//
-
 use crate::error::Error;
 use crate::Element;
+use crate::MatrixElement;
 use crate::vector::dense::DenseVec;
 use rayon::prelude::*;
 use std::ops::{Add, Mul, Sub};
+use ndarray::Array2;
 
 #[derive(PartialEq, Debug)]
 /// A dense matrix is a vector of dense vectors.
 /// Each dense vector is a column of the matrix.
-pub struct DenseMat<A> {
-    columns: Vec<DenseVec<A>>,
+pub struct DenseMatrix<A> {
+    data: Array2<A>,
 }
 
-impl<A> DenseMat<A> {
-    /// Creates a matrix from a vector of columns
-    pub fn new(columns: Vec<DenseVec<A>>) -> DenseMat<A> {
-        DenseMat { columns }
+impl<A> DenseMatrix<A> {
+    /// Creates a matrix from a vector of columns.
+    pub fn from_columns(num_rows: usize, num_columns: usize, columns: Vec<Vec<A>>) -> Result<DenseMatrix<A>, Error> {
     }
 
-    pub fn add_column(&mut self, column: DenseVec<A>) {
-        self.columns.push(column);
+    /// Creates a matrix from a vector of rows.
+    pub fn from_rows(num_rows: usize, num_columns: usize, rows: Vec<Vec<A>>) -> Result<DenseMatrix<A>, Error> {
     }
 
-    pub fn num_rows(&self) -> usize {
-        // We assume the matrix is well formed so we just look
-        // at the number of rows in the first column
-        match self.columns.get(0) {
-            Some(column) => column.len(),
-            None => 0,
-        }
+    /// Creates a dense matrix from a set of elements. If multiple non-zero
+    /// elements are found at the same locations the sum is taken.
+    pub fn from_triplets(num_rows: usize, num_columns: usize, elements: Vec<MatrixElement<A>>) -> Result<DenseMatrix<A>, Error> {
     }
 
-    pub fn num_columns(&self) -> usize {
-        self.columns.len()
+    /// Creates a matrix from a 2 dimensional array created with the
+    /// ndarray crate.
+    pub fn from_array2(data: Array2<A>) -> DenseMatrix<A> {
+        DenseMatrix { data }
+    }
+
+    /// Replaces an entire column of the matrix
+    pub fn replace_column(&mut self, column: Vec<A>, index: usize) {
+    }
+
+    /// Replaces an entire row of the matrix
+    pub fn replace_row(&mut self, row: Vec<A>, index: usize) {
+    }
+
+    pub fn get_mut_data(&mut self) -> &mut Array2<A> {
+        &mut self.data
+    }
+
+    pub fn get_data(&mut self) -> Array2<A> {
+        &self.data
     }
 }
 
 //Maybe todo: should this be copy?
-impl<A: Clone> DenseMat<A> {
-    pub fn transpose(&self) -> DenseMat<A> {
+impl<A: Clone> DenseMatrix<A> {
+    pub fn transpose(&self) -> DenseMatrix<A> {
         // Set up the columns for our new matrix
         let mut columns = Vec::with_capacity(self.num_rows());
         for _ in 0..self.num_rows() {
@@ -69,17 +66,18 @@ impl<A: Clone> DenseMat<A> {
             }
         }
 
-        DenseMat::new(columns)
+        DenseMatrix::new(columns)
     }
+
     /// Creates a matrix from a vector of rows
-    pub fn from_rows(rows: Vec<DenseVec<A>>) -> DenseMat<A> {
-        DenseMat { columns: rows }.transpose()
+    pub fn from_rows(rows: Vec<DenseVec<A>>) -> DenseMatrix<A> {
+        DenseMatrix { columns: rows }.transpose()
     }
 }
 
 //TODO: Make this generic?
-impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMat<A> {
-    pub fn scale(&self, other: &A) -> DenseMat<A> {
+impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMatrix<A> {
+    pub fn scale(&self, other: &A) -> DenseMatrix<A> {
         let columns = self
             .columns
             .par_iter()
@@ -87,16 +85,11 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMat<
                 column.iter().map(|e| *o * *e).collect()
             })
             .collect();
-        DenseMat::new(columns)
+        DenseMatrix::new(columns)
     }
     
-    pub fn vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
-        // If the size of the vector doesn't match the number of
-        // columns then error out
-        if other.len() != self.columns.len() {
-            return Err(Error::SizeMismatch);
-        }
-        Ok(self
+    pub fn dense_vec_mul(&self, other: &DenseVec<A>) -> DenseVec<A> {
+        self
             .columns
             .par_iter()
             .zip(other.par_iter())
@@ -114,11 +107,20 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMat<
                         .collect()
                 },
                 |x, y| x.add(&y),
-            ))
+            )
         //.collect()
     }
 
-    pub fn safe_mul(&self, other: &DenseMat<A>) -> Result<DenseMat<A>, Error> {
+    pub fn safe_dense_vec_mul(&self, other: &DenseVec<A>) -> DenseVec<A> {
+    }
+
+    pub fn sparse_vec_mul(&self, other: &SparseVec<A>) -> DenseVec<A> {
+    }
+
+    pub fn safe_sparse_vec_mul(&self, other: &SparseVec<A>) -> DenseVec<A> {
+    }
+
+    pub fn safe_dense_mat_mul(&self, other: &DenseMatrix<A>) -> Result<DenseMatrix<A>, Error> {
         if self.num_columns() != other.num_rows() {
             return Err(Error::SizeMismatch);
         }
@@ -129,10 +131,11 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseMat<
             .map_with(self, |&mut s, col| s.vec_mul(col))
             .collect::<Result<Vec<Vec<A>>, Error>>()?;
 
-        Ok(DenseMat::new(new_cols))
+        Ok(DenseMatrix::new(new_cols))
     }
 }
-impl DenseMat<f64> {
+
+impl DenseMatrix<f64> {
     /// This takes an upper triangular matrix, and solves it to
     /// equal b
     pub fn backsolve(&self, b: &DenseVec<f64>) -> DenseVec<f64> {
@@ -172,7 +175,7 @@ impl DenseMat<f64> {
         Ok(r.backsolve(&rhs))
     }
 
-    pub fn factor_q(&self) -> DenseMat<f64> {
+    pub fn factor_q(&self) -> DenseMatrix<f64> {
         let mut q_vectors: Vec<DenseVec<f64>> = Vec::with_capacity(self.num_columns());
         for column in self.columns.iter() {
             let mut maybe_q = column.clone();
@@ -185,7 +188,7 @@ impl DenseMat<f64> {
             q_vectors.push(q);
         }
 
-        DenseMat::new(q_vectors)
+        DenseMatrix::new(q_vectors)
     }
 
     /// Returns a new vector, orthogonal to all vectors currently in the

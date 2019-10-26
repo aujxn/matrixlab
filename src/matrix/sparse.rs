@@ -1,25 +1,13 @@
-use crate::Element;
+use crate::{Element, MatrixElement};
 use crate::error::Error;
-use crate::iter::{ElementsIter, MatrixIter};
-use super::dense::DenseMat;
+use crate::matrix::sparse_mat_iter::{ElementsIter, MatrixIter, RowIter};
+use super::dense::DenseMatrix;
 use crate::vector::dense::DenseVec;
 use crate::vector::sparse::SparseVec;
 use rayon::prelude::*;
 use std::fmt::{self, Display};
 use std::ops::{Add, Mul};
 
-#[derive(Clone, Debug, PartialEq, Copy)]
-/// A point with i and j coordinates, as well as some data.
-pub struct MatElement<A: Element>(pub usize, pub usize, pub A);
-
-impl<A: Element> MatElement<A> {
-    /// i is the row and j is the column index. These start at 0.
-    pub fn new(i: usize, j: usize, data: A) -> MatElement<A> {
-        MatElement(i, j, data)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
 /// A matrix in CSR format. Here is a basic description of CSR:
 ///
 /// - All the data is in one vector and is sorted first by row
@@ -41,7 +29,7 @@ impl<A: Element> MatElement<A> {
 /// sparse matrices is painfully inefficient, requiring shifting
 /// of data and column values and adjustment of row values for
 /// every member after the insertion.
-pub struct SparseMat<A: Element> {
+pub struct SparseMatrix<A: Element> {
     //The start of each row
     rows: Vec<usize>,
     //The data as one big array
@@ -54,7 +42,7 @@ pub struct SparseMat<A: Element> {
     default: A,
 }
 
-impl<A: Element> SparseMat<A> {
+impl<A: Element> SparseMatrix<A> {
     /// Create a new matrix from a set of points and row/column dimensions.
     ///
     /// This constructor is checked. ['new_unsafe'] for a faster, more
@@ -67,12 +55,12 @@ impl<A: Element> SparseMat<A> {
     /// A valid matrix:
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
     /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatElement(*i, *j, *val)).collect();
-    /// let matrix = SparseMat::new(4, 6, elements).unwrap();
+    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// assert_eq!(matrix.get(0, 0), Ok(&12));
     /// assert_eq!(matrix.get(3, 5), Ok(&4));
@@ -83,13 +71,13 @@ impl<A: Element> SparseMat<A> {
     /// Bad data:
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
-    /// let out_of_bounds = vec![MatElement(3, 0, 10), MatElement(1, 1, 4)];
-    /// let duplicates = vec![MatElement(1, 1, 1), MatElement(1, 1, 5)];
+    /// let out_of_bounds = vec![MatrixElement(3, 0, 10), MatrixElement(1, 1, 4)];
+    /// let duplicates = vec![MatrixElement(1, 1, 1), MatrixElement(1, 1, 5)];
     ///
-    /// let out_of_bounds = SparseMat::new(3, 3, out_of_bounds);
-    /// let duplicates = SparseMat::new(3, 3, duplicates);
+    /// let out_of_bounds = SparseMatrix::new(3, 3, out_of_bounds);
+    /// let duplicates = SparseMatrix::new(3, 3, duplicates);
     ///
     /// assert_eq!(out_of_bounds, Err(Error::ElementOutOfBounds));
     /// assert_eq!(duplicates, Err(Error::DuplicateElements));
@@ -97,10 +85,10 @@ impl<A: Element> SparseMat<A> {
     pub fn new(
         num_rows: usize,
         num_columns: usize,
-        mut points: Vec<MatElement<A>>,
-    ) -> Result<SparseMat<A>, Error> {
+        mut points: Vec<MatrixElement<A>>,
+    ) -> Result<SparseMatrix<A>, Error> {
         //First we sort our points so we can insert them in order
-        points.par_sort_unstable_by(|&MatElement(y1, x1, _), &MatElement(y2, x2, _)| {
+        points.par_sort_unstable_by(|&MatrixElement(y1, x1, _), &MatrixElement(y2, x2, _)| {
             if y1 != y2 {
                 // Which row it's on is more important, so we check
                 // for that first
@@ -117,7 +105,7 @@ impl<A: Element> SparseMat<A> {
         if points
             .iter()
             .zip(points.iter().skip(1))
-            .map(|(&MatElement(y1, x1, _), &MatElement(y2, x2, _))| y1 == y2 && x1 == x2)
+            .map(|(&MatrixElement(y1, x1, _), &MatrixElement(y2, x2, _))| y1 == y2 && x1 == x2)
             .any(|b| b)
         {
             return Err(Error::DuplicateElements);
@@ -138,7 +126,7 @@ impl<A: Element> SparseMat<A> {
         let mut row_counter = 0;
         let mut counter = 0;
 
-        for MatElement(i, j, v) in points {
+        for MatrixElement(i, j, v) in points {
             if j >= num_columns || i >= num_rows {
                 return Err(Error::ElementOutOfBounds);
             }
@@ -159,7 +147,7 @@ impl<A: Element> SparseMat<A> {
             rows.push(data.len());
         }
 
-        Ok(SparseMat {
+        Ok(SparseMatrix {
             rows,
             data,
             columns,
@@ -186,10 +174,10 @@ impl<A: Element> SparseMat<A> {
     pub fn new_unsafe(
         num_rows: usize,
         num_columns: usize,
-        mut points: Vec<MatElement<A>>,
+        mut points: Vec<MatrixElement<A>>,
     ) -> Self {
         //First we sort our points so we can insert them in order
-        points.par_sort_unstable_by(|&MatElement(y1, x1, _), &MatElement(y2, x2, _)| {
+        points.par_sort_unstable_by(|&MatrixElement(y1, x1, _), &MatrixElement(y2, x2, _)| {
             if y1 != y2 {
                 // Which row it's on is more important, so we check
                 // for that first
@@ -216,7 +204,7 @@ impl<A: Element> SparseMat<A> {
         let mut row_counter = 0;
         let mut counter = 0;
 
-        for MatElement(i, j, v) in points {
+        for MatrixElement(i, j, v) in points {
             data.push(v);
             columns.push(j);
             // If we've gotten to a new row
@@ -234,7 +222,7 @@ impl<A: Element> SparseMat<A> {
             rows.push(data.len());
         }
 
-        SparseMat {
+        SparseMatrix {
             rows,
             data,
             columns,
@@ -258,7 +246,7 @@ impl<A: Element> SparseMat<A> {
     /// be sorted by column.
     pub fn new_csr(rows: Vec<usize>, columns: Vec<usize>, num_columns: usize, data: Vec<A>) -> Self {
         let num_rows = rows.len();
-        SparseMat {
+        SparseMatrix {
             rows,
             data,
             columns,
@@ -288,12 +276,12 @@ impl<A: Element> SparseMat<A> {
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
     /// let data = [(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatElement(*i, *j, *val)).collect();
-    /// let mut matrix = SparseMat::new(4, 6, elements).unwrap();
+    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let mut matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// if let Ok(val) = matrix.get_mut(0, 0) {
     ///     *val = 2
@@ -343,13 +331,13 @@ impl<A: Element> SparseMat<A> {
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
     /// let data = vec![(0usize, 0usize, 12i8), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     /// let result = vec![(0usize, 0usize, 12i8), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
     ///
-    /// let elements: Vec<Element<i8>> = data.iter().map(|(i, j, val)| MatElement(*i, *j, *val)).collect();
-    /// let matrix = SparseMat::new(4, 6, elements).unwrap();
+    /// let elements: Vec<Element<i8>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// let data: Vec<(usize, usize, i8)> = matrix.elements().map(|(i, j, val)| (i, j, *val)).collect();
     ///
@@ -359,15 +347,20 @@ impl<A: Element> SparseMat<A> {
         ElementsIter::new(&self)
     }
 
+    /// Returns an iterator over the rows of the matrix as slices.
+    pub fn row_iter(&self) -> RowIter<A> {
+        RowIter::new(&self)
+    }
+
     /// Returns an iterator over all elements of the matrix, including the
     /// zero elements.
     /// # Examples
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
-    /// let matrix = SparseMat::new(3, 3, vec![MatElement(0usize, 0usize, 12i64), MatElement(2, 2, 4)]).unwrap();
+    /// let matrix = SparseMatrix::new(3, 3, vec![MatrixElement(0usize, 0usize, 12i64), MatrixElement(2, 2, 4)]).unwrap();
     ///
     /// let mut all_iter = matrix.all_elements();
     ///
@@ -380,18 +373,18 @@ impl<A: Element> SparseMat<A> {
     }
 
     /// Create a new matrix that is the transpose of this matrix
-    pub fn transpose(&self) -> SparseMat<A> {
+    pub fn transpose(&self) -> SparseMatrix<A> {
         // Create a new matrix, inverted from our first matrix
         let points = self
             .elements()
             // Swap the x and y coordinates for each point
-            .map(|(y, x, d)| MatElement(x, y, *d));
-        SparseMat::new(self.num_columns, self.num_rows, points.collect())
+            .map(|(y, x, d)| MatrixElement(x, y, *d));
+        SparseMatrix::new(self.num_columns, self.num_rows, points.collect())
             .expect("Invalid matrix transpose")
     }
 
     /// Returns the number of nonzero entries in the matrix
-    pub fn nnz(&self) -> usize {
+    pub fn num_nonzero(&self) -> usize {
         self.data.len()
     }
 
@@ -418,7 +411,7 @@ impl<A: Element> SparseMat<A> {
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
     /// let data = vec![
     ///     (0usize, 0usize, 12i64),
@@ -427,10 +420,10 @@ impl<A: Element> SparseMat<A> {
     ///
     /// let elements: Vec<Element<i64>> = data
     ///     .iter()
-    ///     .map(|(i, j, val)| MatElement(*i, *j, *val))
+    ///     .map(|(i, j, val)| MatrixElement(*i, *j, *val))
     ///     .collect();
     ///
-    /// let matrix = SparseMat::new(4, 6, elements).unwrap();
+    /// let matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// assert_eq!(matrix.get(0, 0), Ok(&12));
     /// assert_eq!(matrix.get(3, 5), Ok(&4));
@@ -467,7 +460,7 @@ impl<A: Element> SparseMat<A> {
     }
 }
 
-impl<A: Element + std::ops::AddAssign> SparseMat<A> {
+impl<A: Element + std::ops::AddAssign> SparseMatrix<A> {
     /// Calulates row sums and returns a vector with the sums
     pub fn row_sums(&self) -> std::vec::Vec<A> {
         let mut sums = vec![self.default; self.num_rows];
@@ -476,9 +469,12 @@ impl<A: Element + std::ops::AddAssign> SparseMat<A> {
     }
 }
 
-impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
+impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
+    pub fn sparse_mat_mul(&self, other: &SparseMatrix<A>) -> SparseMatrix<A> {
+    }
+
     /// Multiplication of  another matrix, giving a result back
-    pub fn safe_mul(&self, other: &SparseMat<A>) -> Result<SparseMat<A>, Error> {
+    pub fn safe_sparse_mat_mul(&self, other: &SparseMatrix<A>) -> Result<SparseMatrix<A>, Error> {
         //Check to make sure the dimensions of our matrix match up
         if other.num_rows() != self.num_columns() {
             return Err(Error::SizeMismatch);
@@ -495,13 +491,13 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
                 let column = other
                     .elements()
                     .filter(|(_, x, _)| *x == i)
-                    .map(|(i, j, val)| MatElement(i, j, *val))
-                    .collect::<Vec<MatElement<A>>>();
+                    .map(|(i, j, val)| MatrixElement(i, j, *val))
+                    .collect::<Vec<MatrixElement<A>>>();
                 if let Ok(mut new_vec) = self.sparse_vec_mul(&column) {
                     //Modify all of the columns
                     new_vec
                         .iter_mut()
-                        .for_each(|MatElement(_, column, _)| *column = i);
+                        .for_each(|MatrixElement(_, column, _)| *column = i);
                     new_vec
                 } else {
                     //Empty vector, as operation didn't finish
@@ -511,7 +507,13 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
             .flatten()
             .collect();
 
-        SparseMat::new(self.num_rows, other.num_columns, points)
+        SparseMatrix::new(self.num_rows, other.num_columns, points)
+    }
+
+    pub fn dense_mat_mul(&self, other: &SparseMatrix<A>) -> DenseMatrix<A> {
+    }
+
+    pub fn safe_dense_mat_mul(&self, other: &SparseMatrix<A>) -> Result<DenseMatrix<A>, Error> {
     }
 
     /// Multiplication of sparse matrix and sparse vector
@@ -535,8 +537,8 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
                 .zip(self.data[start..end].iter())
             {
                 //We have to traverse to find the right element
-                if let Some(MatElement(_, _, other_data)) =
-                    other.iter().filter(|MatElement(y, _, _)| *y == *column).next()
+                if let Some(MatrixElement(_, _, other_data)) =
+                    other.iter().filter(|MatrixElement(y, _, _)| *y == *column).next()
                 {
                     sum = sum + data * *other_data;
                 }
@@ -544,16 +546,19 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
             //Check to see if we should push a value
             if sum != Default::default() {
                 //Assume we're all in the same column
-                let &MatElement(_, column, _) = other.get(0).ok_or(Error::MalformedInput)?;
+                let &MatrixElement(_, column, _) = other.get(0).ok_or(Error::MalformedInput)?;
                 //Here we create the now element of our sparse vector.
-                output.push(MatElement(row, column, sum));
+                output.push(MatrixElement(row, column, sum));
             }
         }
         Ok(output)
     }
 
+    fn safe_sparse_vec_mul(&self, other: &SparseVec<A>) -> Result<SparseVec<A>, Error> {
+    }
+
     /// Multiplication of sparse matrix and dense vector
-    pub fn vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
+    pub fn dense_vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
         //Check to make sure the the length matches up with row size
         if other.len() != self.num_columns() {
             return Err(Error::SizeMismatch);
@@ -562,10 +567,8 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
         let mut output: Vec<A> = Vec::with_capacity(self.num_rows());
         //iter::repeat( Default::default()).take(self.num_rows).collect();
 
-        println!("{:?}", self.rows);
         let row_ranges = self.rows.iter().zip(self.rows.iter().skip(1));
         for (&start, &end) in row_ranges {
-            println!("{:?}, {:?}", start, end);
             let mut sum: A = Default::default();
             for (i, &data) in (start..end).zip(self.data[start..end].iter()) {
                 sum = sum + data * other[self.columns[i]];
@@ -574,20 +577,23 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMat<A> {
         }
         Ok(output)
     }
+
+    pub fn safe_dense_vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
+    }
 }
 
 //We can only do gmres with f64 types
-impl SparseMat<f64> {
+impl SparseMatrix<f64> {
     /// Solves a linear system using the generalized minimal residual method.
-    /// Only implemented for SparseMat<f64>
+    /// Only implemented for SparseMatrix<f64>
     ///
     /// # Example
     ///
     /// ```
-    /// use matrixlab::matrix::sparse::{Element, SparseMat};
+    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
     ///
-    /// let elements = vec![MatElement(0, 0, 2f64), MatElement(1, 1, 2f64), MatElement(0, 1, 1.0)];
-    /// let mat = SparseMat::new(2, 2, elements.clone()).unwrap();
+    /// let elements = vec![MatrixElement(0, 0, 2f64), MatrixElement(1, 1, 2f64), MatrixElement(0, 1, 1.0)];
+    /// let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
     ///    
     /// let result = mat
     ///     .gmres(vec![3.0, 2.0], 100000, 1.0 / 1000000.0, 50)
@@ -624,8 +630,8 @@ impl SparseMat<f64> {
 
         // Our initial search direction, the first column of P
         let p = r.normalize();
-        let mut big_b = DenseMat::new(vec![self * &p]);
-        let mut big_p = DenseMat::new(vec![p]);
+        let mut big_b = DenseMatrix::new(vec![self * &p]);
+        let mut big_p = DenseMatrix::new(vec![p]);
         loop {
             let alpha = big_b.least_squares(&r)?;
 
@@ -657,16 +663,16 @@ impl SparseMat<f64> {
 
                 // Our initial search direction, the first column of P
                 let p = r.normalize();
-                big_b = DenseMat::new(vec![self * &p]);
-                big_p = DenseMat::new(vec![p]);
+                big_b = DenseMatrix::new(vec![self * &p]);
+                big_p = DenseMatrix::new(vec![p]);
             }
         }
     }
 }
 
 // Multiplication by a scalar
-//impl<A: Mul<Output=A> + Copy + Sized + Send + Sync> Mul<A> for SparseMat<A> {
-impl<A: Mul<Output = A> + Element> Mul<A> for SparseMat<A> {
+//impl<A: Mul<Output=A> + Copy + Sized + Send + Sync> Mul<A> for SparseMatrix<A> {
+impl<A: Mul<Output = A> + Element> Mul<A> for SparseMatrix<A> {
     type Output = Self;
     fn mul(mut self, other: A) -> Self {
         //Multiply all of the data by other
@@ -681,17 +687,17 @@ impl<A: Mul<Output = A> + Element> Mul<A> for SparseMat<A> {
 }
 
 // Multiplication by a vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&DenseVec<A>> for &SparseMat<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&DenseVec<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
     type Output = DenseVec<A>;
     fn mul(self, other: &DenseVec<A>) -> Self::Output {
         //This just wraps around one of our safe functions
-        self.vec_mul(other).unwrap()
+        self.dense_vec_mul(other).unwrap()
     }
 }
 
 // Multiplication by a sparse vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseVec<A>> for &SparseMat<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseVec<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
     type Output = SparseVec<A>;
     fn mul(self, other: &SparseVec<A>) -> Self::Output {
@@ -700,10 +706,10 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseVec<A>> for &Spa
 }
 
 // Multiplication by another matrix
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseMat<A>> for &SparseMat<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseMatrix<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
-    type Output = SparseMat<A>;
-    fn mul(self, other: &SparseMat<A>) -> Self::Output {
+    type Output = SparseMatrix<A>;
+    fn mul(self, other: &SparseMatrix<A>) -> Self::Output {
         // This just caches out to our safe matrix multiplication
         // But we unwrap stuff to make it more ergonomic, and there's
         // safe calls if you don't want to crash
@@ -711,7 +717,7 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseMat<A>> for &Spa
     }
 }
 
-impl<A: Element + Display> Display for SparseMat<A> {
+impl<A: Element + Display> Display for SparseMatrix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let elements: Vec<A> = self.all_elements().map(|(_, _, val)| *val).collect();
         //We want to print a row out at a time

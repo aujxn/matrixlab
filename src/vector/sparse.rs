@@ -74,6 +74,10 @@ impl<A: Element> SparseVec<A> {
             default,
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 impl SparseVec<f64> {

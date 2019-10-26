@@ -1,22 +1,4 @@
-//
-//    matrixlab, a library for working with sparse matricies
-//    Copyright (C) 2019 Waylon Cude
-//
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-//
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-//
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//
-
-use crate::matrix::sparse::SparseMat;
+use crate::matrix::sparse::SparseMatrix;
 use crate::Element;
 
 /// MatrixIter iterates over a sparse matrix. This iteration happens in order,
@@ -27,13 +9,13 @@ use crate::Element;
 /// way.
 //NOTE: This implementation could be vastly improved, get is fairly slow
 pub struct MatrixIter<'a, A: Element> {
-    matrix: &'a SparseMat<A>,
+    matrix: &'a SparseMatrix<A>,
     row: usize,
     column: usize,
 }
 
 impl<'a, A: Element> MatrixIter<'a, A> {
-    pub fn new(matrix: &'a SparseMat<A>) -> MatrixIter<'a, A> {
+    pub fn new(matrix: &'a SparseMatrix<A>) -> MatrixIter<'a, A> {
         MatrixIter {
             row: 0,
             column: 0,
@@ -47,7 +29,7 @@ impl<'a, A: Element> Iterator for MatrixIter<'a, A> {
     type Item = (usize, usize, &'a A);
     fn next(&mut self) -> Option<Self::Item> {
         //check if we are in bounds
-        if self.row == self.matrix.num_rows() {
+        if self.row >= self.matrix.num_rows() {
             None
         } else {
             let val = self.matrix.get(self.row, self.column).unwrap();
@@ -74,14 +56,14 @@ impl<'a, A: Element> ExactSizeIterator for MatrixIter<'a, A> {
 /// An ElementsIter iterates over all nonzero values in a sparse matrix. This is much
 /// faster than a MatrixIter and should be preferred in most situations.
 pub struct ElementsIter<'a, A: Element> {
-    matrix: &'a SparseMat<A>,
+    matrix: &'a SparseMatrix<A>,
     row: usize,
     counter: usize,
     next_row_start: usize,
 }
 
 impl<'a, A: Element> ElementsIter<'a, A> {
-    pub fn new(matrix: &'a SparseMat<A>) -> ElementsIter<'a, A> {
+    pub fn new(matrix: &'a SparseMatrix<A>) -> ElementsIter<'a, A> {
         let next_row_start;
         match matrix.get_rows().get(1) {
             Some(i) => next_row_start = *i,
@@ -123,3 +105,40 @@ impl<'a, A: Element> ExactSizeIterator for ElementsIter<'a, A> {
         self.matrix.nnz()
     }
 }
+
+pub struct RowIter<'a, A: Element> {
+    matrix: &'a SparseMatrix<A>,
+    row: usize,
+}
+
+impl<'a, A: Element> RowIter<'a, A> {
+    pub fn new(matrix: &'a SparseMatrix<A>) -> RowIter<'a, A> {
+        RowIter {
+            matrix,
+            row: 0,
+        }
+    }
+}
+
+impl<'a, A: Element> Iterator for RowIter<'a, A> {
+    type Item = (&[usize], &[A]);
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.row == self.matrix.num_rows() {
+            None
+        } else {
+            let row_start = matrix.get_rows().get(row).unwrap();
+            let row_end = matrix.get_rows().get(row + 1).unwrap();
+            let data = matrix.get_data();
+            let cols = matrix.get_columns();
+            
+            Some((cols[row_start..row_end], data[row_start..row_end]))
+        }
+    }
+}
+
+impl<'a, A: Element> ExactSizeIterator for RowIter<'a, A> {
+    fn len(&self) -> usize {
+        self.matrix.num_rows();
+    }
+}
+

@@ -13,6 +13,7 @@ gitlab = { repository = "waylon531/matrixlab", branch = "master" }
 
 [dependencies]
 rayon = "1.0.3"
+ndarray = "0.13.0"
 
 [dev-dependencies]
 proptest = "0.9"

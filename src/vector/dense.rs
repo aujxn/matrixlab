@@ -8,8 +8,9 @@ use std::ops::{Add, Mul, Sub};
 ///
 /// This type definition is so more methods can be added to
 /// the standard vector type.
+#[derive(PartialEq, Debug)]
 pub struct DenseVec<A> {
-    pub data: Vec<A>,
+    data: Vec<A>,
 }
 
 /// Constructor for a dense vector.
@@ -18,6 +19,10 @@ impl<A: Element> DenseVec<A> {
         DenseVec {
             data
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
     }
 }
 

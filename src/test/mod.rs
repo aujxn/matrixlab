@@ -1,3 +1,3 @@
-mod dense;
 mod gmres;
-mod sparse;
+mod matrix::{sparse, dense};
+mod vector::{sparse, dense};
