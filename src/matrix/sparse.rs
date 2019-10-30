@@ -1,6 +1,6 @@
 use crate::{Element, MatrixElement};
 use crate::error::Error;
-use crate::matrix::sparse_mat_iter::{ElementsIter, MatrixIter, RowIter};
+use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
 use super::dense::DenseMatrix;
 use crate::vector::dense::DenseVec;
 use crate::vector::sparse::SparseVec;
@@ -18,17 +18,27 @@ use std::ops::{Add, Mul};
 /// that starts that row.
 ///
 /// - If a row is empty then the values of two adjacent row
-/// indices will be equivalent.
+/// indices will be equivalent. Example: if index 13 and 14
+/// both contain the value 75, row 12 ends at the 74th index
+/// of the data array and row 14 begins at 75.
 ///
 /// - The column vector indices correspond to the data vector
 /// indices. The value is the column of that element.
 ///
-/// This storage format is efficient for memory usage and
+/// This storage format is efficient for memory usage and arithmetic
 /// operations on sparse matrices. Storage of dense matrices
 /// with this format should be avoided. Insertion into existing
-/// sparse matrices is painfully inefficient, requiring shifting
-/// of data and column values and adjustment of row values for
-/// every member after the insertion.
+/// sparse matrices is painfully inefficient. Consider:
+///
+/// - Requires shifting of data and column values for every data
+/// after the insertion to maintain order
+///
+/// - Increment of row values for every row after the inserted data
+///
+/// - Potential re-allocation and complete copy of all the data
+///
+/// Getting the value at a specific location is of complexity
+/// log(n), where n is number of values in the row of interest.
 pub struct SparseMatrix<A: Element> {
     //The start of each row
     rows: Vec<usize>,
@@ -38,8 +48,6 @@ pub struct SparseMatrix<A: Element> {
     columns: Vec<usize>,
     num_rows: usize,
     num_columns: usize,
-    //The '0' value of the data
-    default: A,
 }
 
 impl<A: Element> SparseMatrix<A> {
@@ -153,7 +161,6 @@ impl<A: Element> SparseMatrix<A> {
             columns,
             num_rows,
             num_columns,
-            default: A::default(),
         })
     }
 
@@ -228,7 +235,6 @@ impl<A: Element> SparseMatrix<A> {
             columns,
             num_rows,
             num_columns,
-            default: A::default(),
         }
     }
 
@@ -252,7 +258,6 @@ impl<A: Element> SparseMatrix<A> {
             columns,
             num_rows,
             num_columns,
-            default: A::default(),
         }
     }
 
@@ -373,6 +378,8 @@ impl<A: Element> SparseMatrix<A> {
     }
 
     /// Create a new matrix that is the transpose of this matrix
+    // TODO: for some multiplicaions is is better to transpose into CSC.
+    // transposing into CSC is also free, so that option should be available.
     pub fn transpose(&self) -> SparseMatrix<A> {
         // Create a new matrix, inverted from our first matrix
         let points = self
@@ -444,6 +451,9 @@ impl<A: Element> SparseMatrix<A> {
         //unwrap can't panic here because manual bounds check
         let row_start = *self.rows.get(row).unwrap();
         let row_end;
+        // TODO: I think I did this and it isn't necesarry because the
+        // rows vector has an extra value to account for this case. Not
+        // completely sure.
         if row < max_row {
             row_end = *self.rows.get(row + 1).unwrap();
         } else {
@@ -456,22 +466,24 @@ impl<A: Element> SparseMatrix<A> {
                 return Ok(self.data.get(i).unwrap());
             }
         }
-        return Ok(&self.default);
+        return Err(Error::NotFound);
     }
 }
 
-impl<A: Element + std::ops::AddAssign> SparseMatrix<A> {
+impl<A: Element + std::ops::AddAssign + Default> SparseMatrix<A> {
     /// Calulates row sums and returns a vector with the sums
     pub fn row_sums(&self) -> std::vec::Vec<A> {
-        let mut sums = vec![self.default; self.num_rows];
+        let mut sums = vec![A::default(); self.num_rows];
         self.elements().for_each(|(i, _, v)| sums[i] += *v);
         sums
     }
 }
 
-impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
+impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
+    /* TODO:
     pub fn sparse_mat_mul(&self, other: &SparseMatrix<A>) -> SparseMatrix<A> {
     }
+    */
 
     /// Multiplication of  another matrix, giving a result back
     pub fn safe_sparse_mat_mul(&self, other: &SparseMatrix<A>) -> Result<SparseMatrix<A>, Error> {
@@ -482,23 +494,27 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
         //Otherwise get on with the multiplication
         //TODO: reserve exactly enough space for this
         //let mut points = Vec::new();
-        //We split other up by column, then do a bunch of multiplications
-        //by vector
+        //
+        //right now this is really bad and does tons of allocs
+        //compiler is unlikely to optimize the temp SparseVec's
+        //from allocating a ton of vectors
         let points = (0..other.num_columns)
             .into_par_iter()
-            .map(|i| {
+            .map(|j| {
                 //Get all points that are in the column
                 let column = other
                     .elements()
-                    .filter(|(_, x, _)| *x == i)
-                    .map(|(i, j, val)| MatrixElement(i, j, *val))
-                    .collect::<Vec<MatrixElement<A>>>();
-                if let Ok(mut new_vec) = self.sparse_vec_mul(&column) {
+                    .filter(|(_, x, _)| *x == j)
+                    .map(|(i, _, val)| (i, *val))
+                    .collect();
+                let column = SparseVec::new_unsafe(column, other.num_columns);
+                if let Ok(mut new_col) = self.sparse_vec_mul(&column) {
                     //Modify all of the columns
-                    new_vec
-                        .iter_mut()
-                        .for_each(|MatrixElement(_, column, _)| *column = i);
-                    new_vec
+                    new_col
+                        .get_data()
+                        .iter()
+                        .map(|&(i, val)| MatrixElement(i, j, val))
+                        .collect()
                 } else {
                     //Empty vector, as operation didn't finish
                     vec![]
@@ -510,11 +526,13 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
         SparseMatrix::new(self.num_rows, other.num_columns, points)
     }
 
+    /* TODO
     pub fn dense_mat_mul(&self, other: &SparseMatrix<A>) -> DenseMatrix<A> {
     }
 
     pub fn safe_dense_mat_mul(&self, other: &SparseMatrix<A>) -> Result<DenseMatrix<A>, Error> {
     }
+    */
 
     /// Multiplication of sparse matrix and sparse vector
     fn sparse_vec_mul(&self, other: &SparseVec<A>) -> Result<SparseVec<A>, Error> {
@@ -537,25 +555,25 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
                 .zip(self.data[start..end].iter())
             {
                 //We have to traverse to find the right element
-                if let Some(MatrixElement(_, _, other_data)) =
-                    other.iter().filter(|MatrixElement(y, _, _)| *y == *column).next()
+                if let Some((_, other_data)) =
+                    other.get_data().iter().filter(|&(i, _)| *i == *column).next()
                 {
                     sum = sum + data * *other_data;
                 }
             }
             //Check to see if we should push a value
             if sum != Default::default() {
-                //Assume we're all in the same column
-                let &MatrixElement(_, column, _) = other.get(0).ok_or(Error::MalformedInput)?;
                 //Here we create the now element of our sparse vector.
-                output.push(MatrixElement(row, column, sum));
+                output.push((row, sum));
             }
         }
-        Ok(output)
+        Ok(SparseVec::new_unsafe(output, self.num_columns()))
     }
 
+    /* TODO:
     fn safe_sparse_vec_mul(&self, other: &SparseVec<A>) -> Result<SparseVec<A>, Error> {
     }
+    */
 
     /// Multiplication of sparse matrix and dense vector
     pub fn dense_vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
@@ -571,15 +589,17 @@ impl<A: Element + Mul<Output = A> + Add<Output = A>> SparseMatrix<A> {
         for (&start, &end) in row_ranges {
             let mut sum: A = Default::default();
             for (i, &data) in (start..end).zip(self.data[start..end].iter()) {
-                sum = sum + data * other[self.columns[i]];
+                sum = sum + data * other.get_data()[self.columns[i]];
             }
             output.push(sum);
         }
-        Ok(output)
+        Ok(DenseVec::new(output))
     }
 
+    /* TODO:
     pub fn safe_dense_vec_mul(&self, other: &DenseVec<A>) -> Result<DenseVec<A>, Error> {
     }
+    */
 }
 
 //We can only do gmres with f64 types
@@ -618,12 +638,12 @@ impl SparseMatrix<f64> {
         //Tolerance is 10^-6
         //let tolerance = 1.0/1000000.0;
         // Create our guess, the 0 vector
-        let mut x: DenseVec<f64> = [0.0f64]
+        let mut x: DenseVec<f64> = DenseVec::new([0.0f64]
             .into_iter()
             .cycle()
             .take(self.num_columns())
             .map(|x| *x)
-            .collect();
+            .collect());
         let mut r = b.sub(&(self * &x));
         let r_norm = r.norm();
         let final_norm = r_norm * tolerance;
@@ -635,17 +655,17 @@ impl SparseMatrix<f64> {
         loop {
             let alpha = big_b.least_squares(&r)?;
 
-            x = x.add(&big_p.vec_mul(&alpha)?);
+            x = x.add(&big_p.dense_vec_mul(&alpha));
             //println!("X: {:?}",x);
 
-            r = r.sub(&big_b.vec_mul(&alpha)?);
+            r = r.sub(&big_b.dense_vec_mul(&alpha));
             //println!("R: {:?}",r);
             let norm = r.norm();
             //println!("i: {} NORM: {}",i,norm);
             if norm < final_norm {
                 return Ok(x);
             } else if i >= max_iterations {
-                return Err(Error::ExceededIterations(x));
+                return Err(Error::ExceededIterations(x.get_data().clone()));
             }
             i += 1;
 

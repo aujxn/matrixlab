@@ -5,7 +5,7 @@ pub mod dense;
 pub mod sparse;
 
 /// Sparse matrix iterators
-pub mod sparse_mat_iter;
+pub mod sparse_matrix_iter;
 
 /// Dense matrix iterators
-pub mod dense_mat_iter;
+pub mod dense_matrix_iter;

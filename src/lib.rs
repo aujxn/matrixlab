@@ -54,12 +54,6 @@ sparse/dense matrices or vectors
 
 - More linear algebra
 
-- Graph coarsening with modularity functional
-
-- Graph embedding algorithms
-
-- Basic ML algorithms
-
 ## Examples
 
 Sparse matrix construction

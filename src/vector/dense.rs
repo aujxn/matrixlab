@@ -1,7 +1,6 @@
 use crate::Element;
 use super::sparse::SparseVec;
-//use crate::error::Error;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Sub, SubAssign};
 
 /// Dense vectors are just normal variables where the type
 /// of the vector meets the trait requirements for elements
@@ -24,6 +23,14 @@ impl<A: Element> DenseVec<A> {
     pub fn len(&self) -> usize {
         self.data.len()
     }
+
+    pub fn iter(&self) -> std::slice::Iter<A> {
+        self.data.iter()
+    }
+
+    pub fn get_data(&self) -> &Vec<A> {
+        &self.data
+    }
 }
 
 //TODO: update to work with complex and f32 types
@@ -40,7 +47,7 @@ impl DenseVec<f64> {
     }
 }
 
-impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<A> {
+impl<A: Element + Add<Output = A>> DenseVec<A> {
     /// Adds two dense vectors by adding elements with the same index.
     pub fn add(&self, other: &Self) -> Self {
         let data = self.data.iter()
@@ -53,14 +60,14 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
 
     /// Adds a dense vector and a sparse vector.
     pub fn add_sparse(&self, other: &SparseVec<A>) -> Self {
-        let mut sparse_iter = other.indices.iter().zip(other.data.iter());
+        let mut sparse_iter = other.get_data().iter();
         let mut data = Vec::with_capacity(self.data.len());
 
         let mut current = sparse_iter.next();
 
         for (i, &val) in self.data.iter().enumerate() {
             match current {
-                Some((&j, &sparse_val)) => {
+                Some(&(j, sparse_val)) => {
                     if i < j {
                         data.push(val);
                     } else if i == j {
@@ -73,7 +80,15 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
         }
         DenseVec::new(data)
     }
+}
 
+impl<A: Element + SubAssign> DenseVec<A> {
+    pub fn sub_mut(&mut self, other: &Self) {
+        self.data.iter_mut().zip(other.data.iter()).for_each(|(&mut i, &j)| i -= j);
+    }
+}
+
+impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<A> {
     /// Subtracts a dense vector from a dense vector.
     pub fn sub(&self, other: &Self) -> Self {
         let data = self.data.iter()
@@ -85,14 +100,14 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
 
     /// Subtracts a sparse vector from a dense vector.
     pub fn sub_sparse(&self, other: &SparseVec<A>) -> Self {
-        let mut sparse_iter = other.indices.iter().zip(other.data.iter());
+        let mut sparse_iter = other.get_data().iter();
         let mut data = Vec::with_capacity(self.data.len());
 
         let mut current = sparse_iter.next();
 
         for (i, &val) in self.data.iter().enumerate() {
             match current {
-                Some((&j, &sparse_val)) => {
+                Some(&(j, sparse_val)) => {
                     if i < j {
                         data.push(val);
                     } else if i == j {
@@ -105,13 +120,17 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
         }
         DenseVec::new(data)
     }
+}
 
+impl<A: Element + Mul<Output = A>> DenseVec<A> {
     /// Multiplies every element in the vector by a scalar.
     pub fn scale(&self, scale: A) -> Self {
         let data = self.data.iter().map(|&x| x * scale).collect();
         DenseVec::new(data)
     }
+}
 
+impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> DenseVec<A> {
     /// Calculates the inner product of two dense vectors.
     /// This is the dot product.
     pub fn inner(&self, other: &Self) -> A {
@@ -124,6 +143,6 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
     /// Calculates the inner product of a dense and sparse vector.
     /// This is the dot product.
     pub fn inner_sparse(&self, other: &SparseVec<A>) -> A {
-        other.indices.iter().zip(other.data.iter()).map(|(&i, &val)| val * self.data[i]).fold(A::default(), |acc, prod| acc + prod)
+        other.get_data().iter().map(|&(i, val)| val * self.data[i]).fold(A::default(), |acc, prod| acc + prod)
     }
 }

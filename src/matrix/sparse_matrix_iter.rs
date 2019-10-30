@@ -67,7 +67,7 @@ impl<'a, A: Element> ElementsIter<'a, A> {
         let next_row_start;
         match matrix.get_rows().get(1) {
             Some(i) => next_row_start = *i,
-            None => next_row_start = matrix.nnz(),
+            None => next_row_start = matrix.num_nonzero(),
         }
         ElementsIter {
             matrix,
@@ -91,7 +91,7 @@ impl<'a, A: Element> Iterator for ElementsIter<'a, A> {
             match self.matrix.get_rows().get(self.row + 1) {
                 Some(i) => self.next_row_start = *i,
                 //if last row then iterate through the rest of the data
-                None => self.next_row_start = self.matrix.nnz(),
+                None => self.next_row_start = self.matrix.num_nonzero(),
             }
         }
 
@@ -102,7 +102,7 @@ impl<'a, A: Element> Iterator for ElementsIter<'a, A> {
 
 impl<'a, A: Element> ExactSizeIterator for ElementsIter<'a, A> {
     fn len(&self) -> usize {
-        self.matrix.nnz()
+        self.matrix.num_nonzero()
     }
 }
 
@@ -121,24 +121,24 @@ impl<'a, A: Element> RowIter<'a, A> {
 }
 
 impl<'a, A: Element> Iterator for RowIter<'a, A> {
-    type Item = (&[usize], &[A]);
+    type Item = (&'a [usize], &'a [A]);
     fn next(&mut self) -> Option<Self::Item> {
         if self.row == self.matrix.num_rows() {
             None
         } else {
-            let row_start = matrix.get_rows().get(row).unwrap();
-            let row_end = matrix.get_rows().get(row + 1).unwrap();
-            let data = matrix.get_data();
-            let cols = matrix.get_columns();
+            let row_start = self.matrix.get_rows().get(self.row).unwrap();
+            let row_end = self.matrix.get_rows().get(self.row + 1).unwrap();
+            let data = self.matrix.get_data();
+            let cols = self.matrix.get_columns();
             
-            Some((cols[row_start..row_end], data[row_start..row_end]))
+            Some((&cols[*row_start..*row_end], &data[*row_start..*row_end]))
         }
     }
 }
 
 impl<'a, A: Element> ExactSizeIterator for RowIter<'a, A> {
     fn len(&self) -> usize {
-        self.matrix.num_rows();
+        self.matrix.num_rows()
     }
 }
 
