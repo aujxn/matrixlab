@@ -1,9 +1,9 @@
 [package]
-authors = ["Waylon Cude <waylon.cude@finzdani.net>"]
+authors = ["Waylon Cude <waylon.cude@finzdani.net>", "Austen Nelson <>"]
 edition = "2018"
 name = "matrixlab"
 version = "0.2.0"
-license = "GPL-3.0-or-later"
+license = "MPL-2.0"
 description = "A matrix library that supports both sparse and dense matrices."
 repository = "https://gitlab.com/waylon531/matrixlab"
 readme = "README.md"
