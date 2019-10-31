@@ -11,7 +11,7 @@ use std::ops::{Add, Mul, Sub, SubAssign};
 ///
 /// This type definition is so more methods can be added to
 /// the standard vector type.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct DenseVec<A> {
     data: Vec<A>,
 }
@@ -88,7 +88,7 @@ impl<A: Element + Add<Output = A>> DenseVec<A> {
 
 impl<A: Element + SubAssign> DenseVec<A> {
     pub fn sub_mut(&mut self, other: &Self) {
-        self.data.iter_mut().zip(other.data.iter()).for_each(|(&mut i, &j)| i -= j);
+        self.data.iter_mut().zip(other.data.iter()).for_each(|(i, &j)| *i -= j);
     }
 }
 

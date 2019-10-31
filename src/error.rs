@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use ndarray;
+
 /// This is the general error type for our library. It can represent any failed
 /// operation on a matrix, including building a new matrix or a failed operation
 /// like matrix multiplication
@@ -64,5 +66,11 @@ impl From<std::io::Error> for Error {
 impl From<std::num::ParseFloatError> for Error {
     fn from(_other: std::num::ParseFloatError) -> Self {
         Error::InvalidFile
+    }
+}
+
+impl From<ndarray::ShapeError> for Error {
+    fn from(_other: ndarray::ShapeError) -> Self {
+        Error::SizeMismatch
     }
 }

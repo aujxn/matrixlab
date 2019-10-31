@@ -160,17 +160,17 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A> + Default>
         let new = Array::from_iter(
             (0..self.data.nrows())
             .into_iter()
-            .for_each(|left_row| {
+            .map(|left_row| {
                 (0..other.data.ncols())
                     .into_iter()
-                    .for_each(|right_column| {
-                        self.data.row(left_row)
+                    .map(move |right_column| {
+                        self.data.row(left_row)         // gets a view of the left matrix's row
                             .iter()
-                            .zip(other.data.column(right_column).iter())
-                            .fold(A::default(), |inner, (&i, &j)| inner + i * j)
+                            .zip(other.data.column(right_column).iter())    // and zips it with right column
+                            .fold(A::default(), |inner, (&i, &j)| inner + i * j)    //inner product
                     })
-            })
-        ).into_shape((self.num_rows(), other.num_columns())).unwrap();
+            }).flatten()
+        ).into_shape((self.num_rows(), other.num_columns()))?;
 
         Ok(DenseMatrix::new(new))
     }
@@ -255,13 +255,14 @@ impl DenseMatrix<f64> {
     }
 
     /// Returns a new vector, orthogonal to all vectors currently in the
-    /// array and to the other vector
+    /// matrix and to the other vector
     pub fn orthogonal_to(&self, other: &DenseVec<f64>) -> DenseVec<f64> {
-        let mut final_vec = other.clone();
+        let final_vec: &mut DenseVec<f64> = &mut other.clone();
         for column in self.data.axis_iter(Axis(1)) {
             let column = DenseVec::new(column.iter().map(|&x| x).collect());
             final_vec.sub_mut(&column.scale(other.inner(&column)));
         }
-        *final_vec
+        //TODO: how can i avoid cloning if I want to mutate in place
+        final_vec.clone()
     }
 }
