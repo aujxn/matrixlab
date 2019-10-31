@@ -512,7 +512,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
                     .map(|(i, _, val)| (i, *val))
                     .collect();
                 let column = SparseVec::new_unsafe(column, other.num_columns);
-                if let Ok(mut new_col) = self.sparse_vec_mul(&column) {
+                if let Ok(new_col) = self.sparse_vec_mul(&column) {
                     //Modify all of the columns
                     new_col
                         .get_data()
@@ -606,6 +606,9 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
     */
 }
 
+/* gmres is currently out of order
+ *
+ * come back soon...
 //We can only do gmres with f64 types
 impl SparseMatrix<f64> {
     /// Solves a linear system using the generalized minimal residual method.
@@ -693,10 +696,11 @@ impl SparseMatrix<f64> {
         }
     }
 }
+*/
 
 // Multiplication by a scalar
 //impl<A: Mul<Output=A> + Copy + Sized + Send + Sync> Mul<A> for SparseMatrix<A> {
-impl<A: Mul<Output = A> + Element> Mul<A> for SparseMatrix<A> {
+impl<A: Mul<Output = A> + Element + Default> Mul<A> for SparseMatrix<A> {
     type Output = Self;
     fn mul(mut self, other: A) -> Self {
         //Multiply all of the data by other
@@ -711,7 +715,7 @@ impl<A: Mul<Output = A> + Element> Mul<A> for SparseMatrix<A> {
 }
 
 // Multiplication by a vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&DenseVec<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&DenseVec<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
     type Output = DenseVec<A>;
     fn mul(self, other: &DenseVec<A>) -> Self::Output {
@@ -721,7 +725,7 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&DenseVec<A>> for &Spar
 }
 
 // Multiplication by a sparse vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseVec<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseVec<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
     type Output = SparseVec<A>;
     fn mul(self, other: &SparseVec<A>) -> Self::Output {
@@ -730,14 +734,14 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseVec<A>> for &Spa
 }
 
 // Multiplication by another matrix
-impl<A: Mul<Output = A> + Add<Output = A> + Element> Mul<&SparseMatrix<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseMatrix<A>> for &SparseMatrix<A> {
     //Should this be an option or should it panic?
     type Output = SparseMatrix<A>;
     fn mul(self, other: &SparseMatrix<A>) -> Self::Output {
         // This just caches out to our safe matrix multiplication
         // But we unwrap stuff to make it more ergonomic, and there's
         // safe calls if you don't want to crash
-        self.safe_mul(other).unwrap()
+        self.safe_sparse_mat_mul(other).unwrap()
     }
 }
 

@@ -88,7 +88,7 @@ impl<A: Element> DenseMatrix<A> {
 impl<A: Element> DenseMatrix<A> {
     /// Returns the transpose of the matrix
     pub fn transpose(&self) -> DenseMatrix<A> {
-        let data = self.data.reversed_axes();
+        let data = self.data.clone().reversed_axes();
         DenseMatrix::new(data)
     }
 
@@ -111,7 +111,7 @@ impl<A: Element> DenseMatrix<A> {
 impl<A: Element + ScalarOperand + Mul<Output = A>> DenseMatrix<A> {
     /// Returns a new matrix with every element scaled by some factor
     pub fn scale(&self, factor: &A) -> DenseMatrix<A> {
-        DenseMatrix::new(self.data * *factor)
+        DenseMatrix::new(&self.data * *factor)
     }
 
     /// Modifies the matrix by scaling every element
@@ -158,21 +158,18 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A> + Default>
 
         // TODO: not parallel anymore >:(
         let new = Array::from_iter(
-            self
-            .data
-            .axis_iter(Axis(0))             //iterate over the rows of self
-            .map(|row| {
-                    other
-                    .data
-                    .axis_iter(Axis(1))     //for each self row iter over columns of other
-                    .map(|col| {
-                        col
-                        .iter()
-                        .zip(row.iter())    //take the inner product of row and column
-                        .fold(A::default(), |acc, (&i, &j)| acc + i * j)
+            (0..self.data.nrows())
+            .into_iter()
+            .for_each(|left_row| {
+                (0..other.data.ncols())
+                    .into_iter()
+                    .for_each(|right_column| {
+                        self.data.row(left_row)
+                            .iter()
+                            .zip(other.data.column(right_column).iter())
+                            .fold(A::default(), |inner, (&i, &j)| inner + i * j)
                     })
             })
-            .flatten()
         ).into_shape((self.num_rows(), other.num_columns())).unwrap();
 
         Ok(DenseMatrix::new(new))
