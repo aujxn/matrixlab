@@ -63,54 +63,59 @@ mod matrix {
         let result = vec![369, 414, 36, 381, 414, 533, 21, 474, 36, 21, 9, 24, 381, 474, 24, 425];
         assert_eq!(DenseMatrix::new(4, 4, result), mat.safe_dense_mat_mul(&t).unwrap());
     }
-}
 
-    /*
+    #[test]
+    fn num_rows_and_columns() {
+        // Create a new 4X2 matrix
+        let matrix = vec![12u64, 15, 7, 22, 3, 0, 8, 19];
+        let mat = DenseMatrix::new(4, 2, matrix);
+
+        assert_eq!(4, mat.num_rows());
+        assert_eq!(2, mat.num_columns());
+    }
+    
+    #[test]
+    fn scale_dense_matrix() {
+        // Create a new 4X2 matrix
+        let matrix = vec![12u64, 15, 7, 22, 3, 0, 8, 19];
+        let mat = DenseMatrix::new(4, 2, matrix);
+        let scaled = mat.scale(&2);
+
+        let result = vec![24u64, 30, 14, 44, 6, 0, 16, 38];
+        let result = DenseMatrix::new(4, 2, result);
+        assert_eq!(result, scaled);
+    }
+
+    #[test]
+    fn scale_mut_dense_matrix() {
+        // Create a new 4X2 matrix
+        let matrix = vec![12u64, 15, 7, 22, 3, 0, 8, 19];
+        let mut mat = DenseMatrix::new(4, 2, matrix);
+        mat.scale_mut(&2);
+
+        let result = vec![24u64, 30, 14, 44, 6, 0, 16, 38];
+        let result = DenseMatrix::new(4, 2, result);
+        assert_eq!(result, mat);
+    }
+
     #[test]
     fn backsolve() {
-        let columns = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
+        let data = vec![1.0, 2.0, 0.0, 1.0];
         // Create a new 2X2 matrix
-        let mat = DenseMatrix::new(columns);
+        let mat = DenseMatrix::new(2, 2, data);
 
         //Check to make sure we got the same elements back
-        assert_eq!(vec![1.0, 2.0], mat.backsolve(&vec![5.0, 2.0]));
+        assert_eq!(DenseVec::new(vec![1.0, 2.0]), mat.backsolve(&DenseVec::new(vec![5.0, 2.0])));
     }
 
     #[test]
     fn least_squares_simple() {
-        let columns = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
+        let data = vec![1.0, 2.0, 0.0, 1.0];
         // Create a new 2X2 matrix
-        let mat = DenseMatrix::new(columns);
+        let mat = DenseMatrix::new(2, 2, data);
 
         //Check to make sure we got the same elements back
-        assert_eq!(vec![1.0, 2.0], mat.least_squares(&vec![5.0, 2.0]).unwrap());
-    }
-
-    //#[test]
-    //fn least_squares() {
-    //    let columns = vec![vec![1.0,1.0],vec![2.0,1.0]];
-    //    // Create a new 2X2 matrix
-    //    let mat = DenseMatrix::new(columns);
-
-    //    //Check to make sure we got the same elements back
-    //    assert_eq!(vec![1.0,2.0],mat.least_squares(&vec![5.0,3.0]));
-    //}
-    
-    #[test]
-    fn scalar_multiplication() {
-        let columns = vec![vec![1, 0], vec![2, 1]];
-        // Create a new 2X2 matrix
-        let mat = DenseMatrix::new(columns);
-
-        //This matrix contains every value from our
-        //first matrix, doubled. This is what we
-        //should get when we multiply the matrix by two.
-        let columns = vec![vec![2, 0], vec![4, 2]];
-        // Create a new 2X2 matrix
-        let other_mat = DenseMatrix::new(columns);
-
-        //Check to make sure we got the same elements back
-        assert_eq!(other_mat, mat.scale(&2));
+        assert_eq!(DenseVec::new(vec![1.0, 2.0]), mat.least_squares(&DenseVec::new(vec![5.0, 2.0])).unwrap());
     }
 }
 
@@ -139,4 +144,3 @@ mod orthogonal {
         assert_eq!(other_mat, mat.factor_q());
     }
 }
-*/

@@ -20,6 +20,7 @@ use ndarray::ScalarOperand;
 #[derive(PartialEq, Debug)]
 /// A dense matrix is a vector of dense vectors.
 /// Each dense vector is a column of the matrix.
+// TODO: implement trait for [(i, j)] to access
 pub struct DenseMatrix<A> {
     data: Array<A, Ix2>,
 }
@@ -44,17 +45,19 @@ impl<A: Element + Default + AddAssign> DenseMatrix<A> {
 
 impl<A: Element> DenseMatrix<A> {
     /// Creates a matrix from a vector of columns.
-    pub fn from_columns(num_rows: usize, num_columns: usize, columns: Vec<Vec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
-        let mut iter = columns.iter().flatten().map(|&x| x);
+    // TODO: make tests
+    pub fn from_columns(num_rows: usize, num_columns: usize, columns: Vec<DenseVec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
+        let mut iter = columns.iter().map(|col| col.get_data()).flatten().map(|&x| x);
         let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
         data.swap_axes(0, 1);
         Ok(DenseMatrix { data })
     }
 
     /// Creates a matrix from a vector of rows.
+    // TODO: make tests
     pub fn from_rows(num_rows: usize, num_columns: usize, rows: Vec<Vec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
-        let mut iter = rows.iter().flatten().map(|&x| x);
-        let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
+        let iter = rows.iter().flatten().map(|&x| x);
+        let data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
         Ok(DenseMatrix { data })
     }
 
@@ -67,13 +70,16 @@ impl<A: Element> DenseMatrix<A> {
 
     /// Replaces an entire column of the matrix
     pub fn replace_column(&mut self, column: Vec<A>, index: usize) {
+        unimplemented!();
     }
 
     /// Replaces an entire row of the matrix
     pub fn replace_row(&mut self, row: Vec<A>, index: usize) {
+        unimplemented!();
     }
 
     /// Returns a mutable reference to the array of data
+    // TODO: write test
     pub fn get_mut_data(&mut self) -> &mut Array2<A> {
         &mut self.data
     }
@@ -93,6 +99,7 @@ impl<A: Element> DenseMatrix<A> {
     }
 
     /// Transpose the matrix in place
+    // TODO: write test
     pub fn transpose_self(&mut self) {
         self.data.swap_axes(0, 1);
     }

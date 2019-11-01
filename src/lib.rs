@@ -42,9 +42,6 @@ impl<A: Element> MatrixElement<A> {
 matrixlab is a small linear algebra library for rust featuring storage
 and manipulation of sparse/dense matrices/vectors.
 
-The plan for this library is to feature graph processing algorithms for
-sparse networks in the form of adjacency matrices.
-
 ## Features
 
 - Multiplication, addition, subtraction of sparse/dense matrices with
@@ -56,6 +53,7 @@ sparse/dense matrices or vectors
 
 ## Plans
 
+- LU and QR decompisitions
 - More linear algebra
 
 ## Examples
@@ -63,7 +61,8 @@ sparse/dense matrices or vectors
 Sparse matrix construction
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatrixElement, SparseMatrix};
+use matrixlab::MatrixElement;
+use matrixlab::matrix::sparse::SparseMatrix;
 
 let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
 
@@ -83,7 +82,9 @@ assert_eq!(matrix.get(1, 4), Ok(&42));
 Sparse matrix - dense vector multiplication
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatrixElement, SparseMatrix};
+use matrixlab::MatrixElement;
+use matrixlab::matrix::sparse::SparseMatrix;
+use matrixlab::vector::dense::DenseVec;
 
 let elements = vec![
     MatrixElement(0, 0, 2u64),
@@ -94,10 +95,10 @@ let elements = vec![
     ];
 
 let mat = SparseMatrix::new(3, 3, elements).unwrap();
-let vec = vec![MatrixElement(0, 0, 7), MatrixElement(1, 0, 2), MatrixElement(2, 0, 1)];
+let vec = DenseVec::new(vec![7, 2, 1]);
 
 let result: Vec<MatrixElement<u64>> = &mat * &vec;
-let expected = vec![MatrixElement(0, 0, 16), MatrixElement(1, 0, 35), MatrixElement(2, 0, 11)];
+let expected = DenseVec::new(vec![16, 35, 11]);
 
 assert_eq!(result, expected);
 ```
@@ -105,7 +106,8 @@ assert_eq!(result, expected);
 Sparse matrix - sparse matrix multiplication
 ```
 use matrixlab::error::Error;
-use matrixlab::matrix::sparse::{MatrixElement, SparseMatrix};
+use matrixlab::MatrixElement;
+use matrixlab::matrix::sparse::SparseMatrix;
 /*  _____   _______     _________
  * |2 0 3| |1 2 0 1|   |11 7 12 2|
  * |1 1 0|x|2 0 2 0| = | 3 2  2 1|
