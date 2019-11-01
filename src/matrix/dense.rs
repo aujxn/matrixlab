@@ -46,7 +46,7 @@ impl<A: Element> DenseMatrix<A> {
     /// Creates a matrix from a vector of columns.
     pub fn from_columns(num_rows: usize, num_columns: usize, columns: Vec<Vec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
         let mut iter = columns.iter().flatten().map(|&x| x);
-        let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_columns, num_rows))?;
+        let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
         data.swap_axes(0, 1);
         Ok(DenseMatrix { data })
     }
@@ -58,10 +58,10 @@ impl<A: Element> DenseMatrix<A> {
         Ok(DenseMatrix { data })
     }
 
-    /// Creates a matrix from a 2 dimensional array created with the
-    /// ndarray crate. Dimension 0 is referred to as rows or i and 1
-    /// is referred to as columns or j.
-    pub fn new(data: Array2<A>) -> DenseMatrix<A> {
+    //TODO: make this work for vec's also
+    /// Creates a matrix from an array and a shape
+    pub fn new(num_rows: usize, num_columns: usize, data: Vec<A>) -> DenseMatrix<A> {
+        let data = Array::from_iter(data.iter().map(|x| *x)).into_shape((num_rows, num_columns)).unwrap();
         DenseMatrix { data }
     }
 
@@ -79,7 +79,7 @@ impl<A: Element> DenseMatrix<A> {
     }
 
     /// Returns a immutable reference to the array of data
-    pub fn get_data(&mut self) -> &Array2<A> {
+    pub fn get_data(&self) -> &Array2<A> {
         &self.data
     }
 }
@@ -89,7 +89,7 @@ impl<A: Element> DenseMatrix<A> {
     /// Returns the transpose of the matrix
     pub fn transpose(&self) -> DenseMatrix<A> {
         let data = self.data.clone().reversed_axes();
-        DenseMatrix::new(data)
+        DenseMatrix{ data }
     }
 
     /// Transpose the matrix in place
@@ -111,7 +111,8 @@ impl<A: Element> DenseMatrix<A> {
 impl<A: Element + ScalarOperand + Mul<Output = A>> DenseMatrix<A> {
     /// Returns a new matrix with every element scaled by some factor
     pub fn scale(&self, factor: &A) -> DenseMatrix<A> {
-        DenseMatrix::new(&self.data * *factor)
+        let data = &self.data * *factor;
+        DenseMatrix{ data }
     }
 
     /// Modifies the matrix by scaling every element
@@ -172,7 +173,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A> + Default>
             }).flatten()
         ).into_shape((self.num_rows(), other.num_columns()))?;
 
-        Ok(DenseMatrix::new(new))
+        Ok(DenseMatrix{ data: new })
     }
 }
 
@@ -251,7 +252,7 @@ impl DenseMatrix<f64> {
             )
             .into_shape((self.num_rows(), self.num_columns())).unwrap();
 
-        DenseMatrix::new(matrix)
+        DenseMatrix{ data: matrix }
     }
 
     /// Returns a new vector, orthogonal to all vectors currently in the
