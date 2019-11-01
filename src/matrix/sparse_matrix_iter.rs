@@ -117,10 +117,7 @@ pub struct RowIter<'a, A: Element> {
 
 impl<'a, A: Element> RowIter<'a, A> {
     pub fn new(matrix: &'a SparseMatrix<A>) -> RowIter<'a, A> {
-        RowIter {
-            matrix,
-            row: 0,
-        }
+        RowIter { matrix, row: 0 }
     }
 }
 
@@ -134,7 +131,7 @@ impl<'a, A: Element> Iterator for RowIter<'a, A> {
             let row_end = self.matrix.get_rows().get(self.row + 1).unwrap();
             let data = self.matrix.get_data();
             let cols = self.matrix.get_columns();
-            
+
             Some((&cols[*row_start..*row_end], &data[*row_start..*row_end]))
         }
     }
@@ -145,4 +142,3 @@ impl<'a, A: Element> ExactSizeIterator for RowIter<'a, A> {
         self.matrix.num_rows()
     }
 }
-

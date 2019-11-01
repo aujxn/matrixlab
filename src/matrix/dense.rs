@@ -3,19 +3,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::error::Error;
-use crate::Element;
-use crate::MatrixElement;
 use crate::vector::dense::DenseVec;
 use crate::vector::sparse::SparseVec;
-use rayon::prelude::*;
-use std::ops::{AddAssign, Add, Mul, Sub};
-use std::iter::FromIterator;
+use crate::Element;
+use crate::MatrixElement;
+use ndarray::Array;
 use ndarray::Array2;
 use ndarray::Axis;
-use ndarray::ShapeError;
-use ndarray::Array;
 use ndarray::Ix2;
 use ndarray::ScalarOperand;
+use ndarray::ShapeError;
+use rayon::prelude::*;
+use std::iter::FromIterator;
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 #[derive(PartialEq, Debug)]
 /// A dense matrix is a vector of dense vectors.
@@ -28,26 +28,36 @@ pub struct DenseMatrix<A> {
 impl<A: Element + Default + AddAssign> DenseMatrix<A> {
     /// Creates a dense matrix from a set of elements. If multiple non-zero
     /// elements are found at the same locations the sum is taken.
-    pub fn from_triplets(num_rows: usize, num_columns: usize, elements: Vec<MatrixElement<A>>) -> Result<DenseMatrix<A>, Error> {
+    pub fn from_triplets(
+        num_rows: usize,
+        num_columns: usize,
+        elements: Vec<MatrixElement<A>>,
+    ) -> Result<DenseMatrix<A>, Error> {
         let mut data = Array2::default((num_rows, num_columns));
 
         for MatrixElement(i, j, val) in elements {
             if let Some(element) = data.get_mut((i, j)) {
                 *element += val;
             } else {
-                return Err(Error::ElementOutOfBounds)
+                return Err(Error::ElementOutOfBounds);
             }
         }
-
         Ok(DenseMatrix { data })
     }
 }
 
 impl<A: Element> DenseMatrix<A> {
     /// Creates a matrix from a vector of columns.
-    // TODO: make tests
-    pub fn from_columns(num_rows: usize, num_columns: usize, columns: Vec<DenseVec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
-        let mut iter = columns.iter().map(|col| col.get_data()).flatten().map(|&x| x);
+    pub fn from_columns(
+        num_rows: usize,
+        num_columns: usize,
+        columns: Vec<DenseVec<A>>,
+    ) -> Result<DenseMatrix<A>, ShapeError> {
+        let mut iter = columns
+            .iter()
+            .map(|col| col.get_data())
+            .flatten()
+            .map(|&x| x);
         let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
         data.swap_axes(0, 1);
         Ok(DenseMatrix { data })
@@ -55,7 +65,11 @@ impl<A: Element> DenseMatrix<A> {
 
     /// Creates a matrix from a vector of rows.
     // TODO: make tests
-    pub fn from_rows(num_rows: usize, num_columns: usize, rows: Vec<Vec<A>>) -> Result<DenseMatrix<A>, ShapeError> {
+    pub fn from_rows(
+        num_rows: usize,
+        num_columns: usize,
+        rows: Vec<Vec<A>>,
+    ) -> Result<DenseMatrix<A>, ShapeError> {
         let iter = rows.iter().flatten().map(|&x| x);
         let data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
         Ok(DenseMatrix { data })
@@ -64,7 +78,9 @@ impl<A: Element> DenseMatrix<A> {
     //TODO: make this work for vec's also
     /// Creates a matrix from an array and a shape
     pub fn new(num_rows: usize, num_columns: usize, data: Vec<A>) -> DenseMatrix<A> {
-        let data = Array::from_iter(data.iter().map(|x| *x)).into_shape((num_rows, num_columns)).unwrap();
+        let data = Array::from_iter(data.iter().map(|x| *x))
+            .into_shape((num_rows, num_columns))
+            .unwrap();
         DenseMatrix { data }
     }
 
@@ -95,7 +111,7 @@ impl<A: Element> DenseMatrix<A> {
     /// Returns the transpose of the matrix
     pub fn transpose(&self) -> DenseMatrix<A> {
         let data = self.data.clone().reversed_axes();
-        DenseMatrix{ data }
+        DenseMatrix { data }
     }
 
     /// Transpose the matrix in place
@@ -119,7 +135,7 @@ impl<A: Element + ScalarOperand + Mul<Output = A>> DenseMatrix<A> {
     /// Returns a new matrix with every element scaled by some factor
     pub fn scale(&self, factor: &A) -> DenseMatrix<A> {
         let data = &self.data * *factor;
-        DenseMatrix{ data }
+        DenseMatrix { data }
     }
 
     /// Modifies the matrix by scaling every element
@@ -136,8 +152,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A> + Default>
             .data
             .axis_iter(Axis(0))
             .map(|row| {
-                row
-                    .iter()
+                row.iter()
                     .zip(other.iter())
                     .fold(A::default(), |acc, (&i, &j)| acc + i * j)
             })
@@ -167,20 +182,23 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A> + Default>
         // TODO: not parallel anymore >:(
         let new = Array::from_iter(
             (0..self.data.nrows())
-            .into_iter()
-            .map(|left_row| {
-                (0..other.data.ncols())
-                    .into_iter()
-                    .map(move |right_column| {
-                        self.data.row(left_row)         // gets a view of the left matrix's row
-                            .iter()
-                            .zip(other.data.column(right_column).iter())    // and zips it with right column
-                            .fold(A::default(), |inner, (&i, &j)| inner + i * j)    //inner product
-                    })
-            }).flatten()
-        ).into_shape((self.num_rows(), other.num_columns()))?;
+                .into_iter()
+                .map(|left_row| {
+                    (0..other.data.ncols())
+                        .into_iter()
+                        .map(move |right_column| {
+                            self.data
+                                .row(left_row) // gets a view of the left matrix's row
+                                .iter()
+                                .zip(other.data.column(right_column).iter()) // and zips it with right column
+                                .fold(A::default(), |inner, (&i, &j)| inner + i * j) //inner product
+                        })
+                })
+                .flatten(),
+        )
+        .into_shape((self.num_rows(), other.num_columns()))?;
 
-        Ok(DenseMatrix{ data: new })
+        Ok(DenseMatrix { data: new })
     }
 }
 
@@ -235,7 +253,10 @@ impl DenseMatrix<f64> {
             let mut maybe_q = DenseVec::new(column.iter().map(|&x| x).collect());
             for orthogonal in q_vectors.iter() {
                 // Is this the numerical stable MGS or normal gram schmidt? TODO: look closer later
-                let c = column.iter().zip(orthogonal.iter()).fold(0.0, |acc, (&i, &j)| acc + i * j);
+                let c = column
+                    .iter()
+                    .zip(orthogonal.iter())
+                    .fold(0.0, |acc, (&i, &j)| acc + i * j);
                 // subtract c_n * q_n
                 maybe_q.sub_mut(&orthogonal.scale(c));
             }
@@ -249,17 +270,14 @@ impl DenseMatrix<f64> {
         // might not be a big deal.
         let matrix: Array<f64, Ix2> = Array::from_iter(
             q_vectors
-            .iter()
-            .map(|cols| {
-                cols
-                .get_data()
                 .iter()
-                .map(|&x| x)
-            }).flatten()
-            )
-            .into_shape((self.num_rows(), self.num_columns())).unwrap();
+                .map(|cols| cols.get_data().iter().map(|&x| x))
+                .flatten(),
+        )
+        .into_shape((self.num_rows(), self.num_columns()))
+        .unwrap();
 
-        DenseMatrix{ data: matrix }
+        DenseMatrix { data: matrix }
     }
 
     /// Returns a new vector, orthogonal to all vectors currently in the

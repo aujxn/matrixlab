@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::Element;
 use super::dense::DenseVec;
 use crate::error::Error;
-use std::ops::{Add, Mul, Sub};
+use crate::Element;
 use rayon::prelude::*;
+use std::ops::{Add, Mul, Sub};
 
 /// Sparse vectors are index value pairs.
 /// Manipulate sparse vectors at your own risk,
@@ -23,17 +23,14 @@ impl<A: Element> SparseVec<A> {
     /// and ElementOutOfBounds accordingly.
     pub fn new(data: Vec<(usize, A)>, length: usize) -> Result<Self, Error> {
         for ((i, _), (j, _)) in data.iter().zip(data.iter().skip(1)) {
-            if *i >= *j { 
-                return Err(Error::MalformedInput)
+            if *i >= *j {
+                return Err(Error::MalformedInput);
             } else if *j >= length {
-                return Err(Error::ElementOutOfBounds)
+                return Err(Error::ElementOutOfBounds);
             }
         }
 
-        Ok(SparseVec {
-            data,
-            length,
-        })
+        Ok(SparseVec { data, length })
     }
 
     /// Constructs a sparse matrix from a Vec of index, value pairs.
@@ -45,26 +42,20 @@ impl<A: Element> SparseVec<A> {
         data.par_sort_unstable_by(|&(i1, _), &(i2, _)| i1.cmp(&i2));
 
         for ((i, _), (j, _)) in data.iter().zip(data.iter().skip(1)) {
-            if *i >= *j { 
-                return Err(Error::MalformedInput)
+            if *i >= *j {
+                return Err(Error::MalformedInput);
             } else if *j >= length {
-                return Err(Error::ElementOutOfBounds)
+                return Err(Error::ElementOutOfBounds);
             }
         }
 
-        Ok(SparseVec {
-            data,
-            length,
-        })
+        Ok(SparseVec { data, length })
     }
 
     /// Constructs a sparse matrix from values and indices provided.
     /// Performs no validity checks.
     pub fn new_unsafe(data: Vec<(usize, A)>, length: usize) -> Self {
-        SparseVec {
-            data,
-            length,
-        }
+        SparseVec { data, length }
     }
 
     /// Returns the "true" length of the vector
@@ -88,7 +79,11 @@ impl SparseVec<f64> {
     /// Calculates the Euclidean norm of a sparse vector.
     /// This is the magnitude of the vector.
     fn norm(&self) -> f64 {
-        self.data.iter().map(|(_, x)| x * x).fold(0.0, |acc, y| acc + y).sqrt()
+        self.data
+            .iter()
+            .map(|(_, x)| x * x)
+            .fold(0.0, |acc, y| acc + y)
+            .sqrt()
     }
 
     /// Evaluates the unit vector in the same direction.
@@ -136,10 +131,7 @@ impl<A: Element + Sub<Output = A> + Default> SparseVec<A> {
         }
 
         let length = self.length;
-        SparseVec {
-            data,
-            length,
-        }
+        SparseVec { data, length }
     }
 
     /// Subtracts a dense vector from a sparse vector.
@@ -158,7 +150,7 @@ impl<A: Element + Sub<Output = A> + Default> SparseVec<A> {
                         data.push(sparse_val - val);
                         current = sparse_iter.next();
                     }
-                },
+                }
                 None => data.push(A::default() - val),
             }
         }
@@ -202,10 +194,7 @@ impl<A: Element + Add<Output = A>> SparseVec<A> {
         }
 
         let length = self.length;
-        SparseVec {
-            data,
-            length,
-        }
+        SparseVec { data, length }
     }
 
     /// Adds a sparse vector and a dense vector.
@@ -222,10 +211,7 @@ impl<A: Element + Mul<Output = A>> SparseVec<A> {
         let data = self.data.iter().map(|&(i, x)| (i, x * scale)).collect();
         let length = self.length;
 
-        SparseVec {
-            data,
-            length,
-        }
+        SparseVec { data, length }
     }
 }
 

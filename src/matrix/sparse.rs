@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::{Element, MatrixElement};
+use super::dense::DenseMatrix;
 use crate::error::Error;
 use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
-use super::dense::DenseMatrix;
 use crate::vector::dense::DenseVec;
 use crate::vector::sparse::SparseVec;
+use crate::{Element, MatrixElement};
 use rayon::prelude::*;
 use std::fmt::{self, Display};
 use std::ops::{Add, Mul};
@@ -247,14 +247,19 @@ impl<A: Element> SparseMatrix<A> {
     /// and the length of columns and data should be equal.
     ///
     /// This function is unchecked so if malformed data is
-    /// provided behaviour is undefined. 
+    /// provided behaviour is undefined.
     ///
     /// This method should be used to avoid the overhead of
     /// sorting data that the other constructors have.
     ///
     /// Methods in this library expect data in each row to
     /// be sorted by column.
-    pub fn new_csr(rows: Vec<usize>, columns: Vec<usize>, num_columns: usize, data: Vec<A>) -> Self {
+    pub fn new_csr(
+        rows: Vec<usize>,
+        columns: Vec<usize>,
+        num_columns: usize,
+        data: Vec<A>,
+    ) -> Self {
         let num_rows = rows.len();
         SparseMatrix {
             rows,
@@ -559,8 +564,11 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
                 .zip(self.data[start..end].iter())
             {
                 //We have to traverse to find the right element
-                if let Some((_, other_data)) =
-                    other.get_data().iter().filter(|&(i, _)| *i == *column).next()
+                if let Some((_, other_data)) = other
+                    .get_data()
+                    .iter()
+                    .filter(|&(i, _)| *i == *column)
+                    .next()
                 {
                     sum = sum + data * *other_data;
                 }
@@ -621,7 +629,7 @@ impl SparseMatrix<f64> {
     ///
     /// let elements = vec![MatrixElement(0, 0, 2f64), MatrixElement(1, 1, 2f64), MatrixElement(0, 1, 1.0)];
     /// let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
-    ///    
+    ///
     /// let result = mat
     ///     .gmres(vec![3.0, 2.0], 100000, 1.0 / 1000000.0, 50)
     ///     .unwrap();
@@ -715,7 +723,9 @@ impl<A: Mul<Output = A> + Element + Default> Mul<A> for SparseMatrix<A> {
 }
 
 // Multiplication by a vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&DenseVec<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&DenseVec<A>>
+    for &SparseMatrix<A>
+{
     //Should this be an option or should it panic?
     type Output = DenseVec<A>;
     fn mul(self, other: &DenseVec<A>) -> Self::Output {
@@ -725,7 +735,9 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&DenseVec<A>>
 }
 
 // Multiplication by a sparse vector
-impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseVec<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseVec<A>>
+    for &SparseMatrix<A>
+{
     //Should this be an option or should it panic?
     type Output = SparseVec<A>;
     fn mul(self, other: &SparseVec<A>) -> Self::Output {
@@ -734,7 +746,9 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseVec<A>
 }
 
 // Multiplication by another matrix
-impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseMatrix<A>> for &SparseMatrix<A> {
+impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseMatrix<A>>
+    for &SparseMatrix<A>
+{
     //Should this be an option or should it panic?
     type Output = SparseMatrix<A>;
     fn mul(self, other: &SparseMatrix<A>) -> Self::Output {

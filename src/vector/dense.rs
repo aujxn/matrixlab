@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::Element;
 use super::sparse::SparseVec;
+use crate::Element;
 use std::ops::{Add, Mul, Sub, SubAssign};
 
 /// Dense vectors are just normal variables where the type
@@ -19,9 +19,7 @@ pub struct DenseVec<A> {
 /// Constructor for a dense vector.
 impl<A: Element> DenseVec<A> {
     pub fn new(data: Vec<A>) -> Self {
-        DenseVec {
-            data
-        }
+        DenseVec { data }
     }
 
     pub fn len(&self) -> usize {
@@ -42,9 +40,13 @@ impl DenseVec<f64> {
     /// Calculates the Euclidean norm of a dense vector.
     /// This is the magnitude of the vector.
     pub fn norm(&self) -> f64 {
-        self.data.iter().map(|x| x * x).fold(0.0, |x, y| x + y).sqrt()
+        self.data
+            .iter()
+            .map(|x| x * x)
+            .fold(0.0, |x, y| x + y)
+            .sqrt()
     }
-    
+
     /// Evaluates the unit vector in the same direction.
     pub fn normalize(&self) -> Self {
         self.scale(1.0 / (self.norm()))
@@ -54,7 +56,9 @@ impl DenseVec<f64> {
 impl<A: Element + Add<Output = A>> DenseVec<A> {
     /// Adds two dense vectors by adding elements with the same index.
     pub fn add(&self, other: &Self) -> Self {
-        let data = self.data.iter()
+        let data = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&x, &y)| x + y)
             .collect();
@@ -78,7 +82,7 @@ impl<A: Element + Add<Output = A>> DenseVec<A> {
                         data.push(val + sparse_val);
                         current = sparse_iter.next();
                     }
-                },
+                }
                 None => data.push(val),
             }
         }
@@ -88,14 +92,19 @@ impl<A: Element + Add<Output = A>> DenseVec<A> {
 
 impl<A: Element + SubAssign> DenseVec<A> {
     pub fn sub_mut(&mut self, other: &Self) {
-        self.data.iter_mut().zip(other.data.iter()).for_each(|(i, &j)| *i -= j);
+        self.data
+            .iter_mut()
+            .zip(other.data.iter())
+            .for_each(|(i, &j)| *i -= j);
     }
 }
 
 impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<A> {
     /// Subtracts a dense vector from a dense vector.
     pub fn sub(&self, other: &Self) -> Self {
-        let data = self.data.iter()
+        let data = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&x, &y)| x - y)
             .collect();
@@ -118,7 +127,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Sub<Output = A>> DenseVec<
                         data.push(val - sparse_val);
                         current = sparse_iter.next();
                     }
-                },
+                }
                 None => data.push(val),
             }
         }
@@ -138,7 +147,8 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> DenseVec<A> {
     /// Calculates the inner product of two dense vectors.
     /// This is the dot product.
     pub fn inner(&self, other: &Self) -> A {
-        self.data.iter()
+        self.data
+            .iter()
             .zip(other.data.iter())
             .map(|(&x, &y)| x * y)
             .fold(A::default(), |x, y| x + y)
@@ -147,6 +157,10 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> DenseVec<A> {
     /// Calculates the inner product of a dense and sparse vector.
     /// This is the dot product.
     pub fn inner_sparse(&self, other: &SparseVec<A>) -> A {
-        other.get_data().iter().map(|&(i, val)| val * self.data[i]).fold(A::default(), |acc, prod| acc + prod)
+        other
+            .get_data()
+            .iter()
+            .map(|&(i, val)| val * self.data[i])
+            .fold(A::default(), |acc, prod| acc + prod)
     }
 }
