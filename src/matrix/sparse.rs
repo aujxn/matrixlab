@@ -43,6 +43,7 @@ use std::ops::{Add, Mul};
 ///
 /// Getting the value at a specific location is of complexity
 /// log(n), where n is number of values in the row of interest.
+#[derive(PartialEq, Debug, Clone)]
 pub struct SparseMatrix<A: Element> {
     //The start of each row
     rows: Vec<usize>,

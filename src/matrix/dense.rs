@@ -292,3 +292,6 @@ impl DenseMatrix<f64> {
         final_vec.clone()
     }
 }
+
+//TODO: impl all of the trais for add/mul a scalar, mul a vec, mul a matrix, and assign version for
+//all of the previous

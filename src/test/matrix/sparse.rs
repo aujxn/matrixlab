@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-/*
 mod matrix {
     use crate::error::Error;
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::MatrixElement;
+
     #[test]
     fn matrix_creation() {
         let elements = vec![MatrixElement(0, 0, 2u64), MatrixElement(0, 1, 1)];
@@ -22,13 +23,11 @@ mod matrix {
     }
 
     #[test]
+    #[should_panic]
     fn out_of_bounds_matrix_creation() {
         let elements = vec![MatrixElement(1, 1, 2u64), MatrixElement(1, 3, 1)];
         // Create a new 2X2 matrix
-        let mat = SparseMatrix::new(2, 2, elements.clone());
-
-        //Check to make sure that the right error got returned
-        assert_eq!(mat, Err(Error::MatrixElementOutOfBounds));
+        let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
     }
 
     #[test]
@@ -65,7 +64,9 @@ mod matrix {
 }
 
 mod transpose {
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::MatrixElement;
+
     #[test]
     fn transpose() {
         let elements = vec![MatrixElement(0, 0, 2u64), MatrixElement(0, 1, 17)];
@@ -80,18 +81,21 @@ mod transpose {
     }
 }
 
-mod vector_mult {
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+mod dense_vector_mult {
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::vector::dense::DenseVec;
+    use crate::MatrixElement;
+
     #[test]
-    fn mult() {
+    fn dense_vec_mult() {
         let elements = vec![MatrixElement(0, 0, 2u64), MatrixElement(0, 1, 1)];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
 
-        let result: Vec<u64> = &mat * &vec![2, 1];
+        let result = &mat * &DenseVec::new(vec![2, 1]);
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, vec![5, 0]);
+        assert_eq!(result, DenseVec::new(vec![5, 0]));
     }
 
     #[test]
@@ -104,10 +108,10 @@ mod vector_mult {
         ];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
-        let result: Vec<u64> = &mat * &vec![1, 1];
+        let result = &mat * &DenseVec::new(vec![1, 1]);
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, vec![3, 10]);
+        assert_eq!(result, DenseVec::new(vec![3, 10]));
     }
 
     #[test]
@@ -121,25 +125,28 @@ mod vector_mult {
         ];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(3, 3, elements.clone()).unwrap();
-        let result: Vec<u64> = &mat * &vec![7, 2, 1];
+        let result = &mat * &DenseVec::new(vec![7, 2, 1]);
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, vec![16, 35, 11]);
+        assert_eq!(result, DenseVec::new(vec![16, 35, 11]));
     }
 }
 
 mod sparse_vector_mult {
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::MatrixElement;
+    use crate::vector::sparse::SparseVec;
+
     #[test]
     fn mult() {
         let elements = vec![MatrixElement(0, 0, 2u64), MatrixElement(0, 1, 1)];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
 
-        let result: Vec<MatrixElement<u64>> = &mat * &vec![(0, 1), (1, 1)];
+        let result = &mat * &SparseVec::new(vec![(0, 1u64), (1, 1)], 2).unwrap();
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, vec![MatrixElement(0, 0, 3)]);
+        assert_eq!(result, SparseVec::new(vec![(0, 3u64)], 2).unwrap());
     }
 
     #[test]
@@ -158,6 +165,9 @@ mod sparse_vector_mult {
         assert_eq!(result, vec![MatrixElement(0, 0, 3), MatrixElement(1, 0, 10)]);
     }
 
+}
+
+/*
     #[test]
     fn bigger_mult() {
         let elements = vec![

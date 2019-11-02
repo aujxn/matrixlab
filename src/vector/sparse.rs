@@ -11,6 +11,7 @@ use std::ops::{Add, Mul, Sub};
 /// Sparse vectors are index value pairs.
 /// Manipulate sparse vectors at your own risk,
 /// index values must stay in order.
+#[derive(PartialEq, Debug, Clone)]
 pub struct SparseVec<A> {
     data: Vec<(usize, A)>,
     // the "actual" length of the vector (including 0's)
