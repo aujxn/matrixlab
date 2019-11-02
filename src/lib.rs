@@ -2,43 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-/// Holds the error type for matrixlab
-pub mod error;
-
-/// Sparse and dense matricies
-pub mod matrix;
-
-/// Sparse and dense vectors
-pub mod vector;
-
-#[cfg(test)]
-mod test;
-
-use error::Error;
-use matrix::sparse::SparseMatrix;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
-
-/// These are traits every element needs to have
-/// Numbers trivially fulfill this
-pub trait Element: Copy + Sized + Send + Sync + PartialEq {}
-
-impl<A: Copy + Sized + Send + Sync + PartialEq> Element for A {}
-
-#[derive(Clone, Debug, PartialEq, Copy)]
-/// A point with i and j coordinates, as well as some data.
-pub struct MatrixElement<A: Element>(pub usize, pub usize, pub A);
-
-impl<A: Element> MatrixElement<A> {
-    /// i is the row and j is the column index. These start at 0.
-    pub fn new(i: usize, j: usize, data: A) -> MatrixElement<A> {
-        MatrixElement(i, j, data)
-    }
-}
-
-/**
-
+/*!
 matrixlab is a small linear algebra library for rust featuring storage
 and manipulation of sparse/dense matrices/vectors.
 
@@ -140,18 +104,57 @@ let matrices: Vec<SparseMatrix<i64>> = vec![a, b]
     })
     .collect();
 
-print!("{:?}, \n", matrices);
 let result: SparseMatrix<i64> = &matrices[0] * &matrices[1];
 
-let expected = c.iter().enumerate().map(|(index, val)| {
-    let i = index / 4;
-    let j = index % 4;
-    MatrixElement(i as usize, j as usize, *val)}).collect();
+let expected = c
+    .iter()
+    .enumerate()
+    .map(|(index, val)| {
+        let i = index / 4;
+        let j = index % 4;
+        MatrixElement(i as usize, j as usize, *val)
+    })
+    .collect();
 let expected = SparseMatrix::new(3, 4, expected).unwrap();
 
 assert_eq!(expected, result);
 ```
 */
+
+/// Holds the error type for matrixlab
+pub mod error;
+
+/// Sparse and dense matricies
+pub mod matrix;
+
+/// Sparse and dense vectors
+pub mod vector;
+
+#[cfg(test)]
+mod test;
+
+use error::Error;
+use matrix::sparse::SparseMatrix;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+
+/// These are traits every element needs to have
+/// Numbers trivially fulfill this
+pub trait Element: Copy + Sized + Send + Sync + PartialEq {}
+
+impl<A: Copy + Sized + Send + Sync + PartialEq> Element for A {}
+
+#[derive(Clone, Debug, PartialEq, Copy)]
+/// A point with i and j coordinates, as well as some data.
+pub struct MatrixElement<A: Element>(pub usize, pub usize, pub A);
+
+impl<A: Element> MatrixElement<A> {
+    /// i is the row and j is the column index. These start at 0.
+    pub fn new(i: usize, j: usize, data: A) -> MatrixElement<A> {
+        MatrixElement(i, j, data)
+    }
+}
 
 /// Takes in a matrix market format file and gives back the
 /// resulting matrix. This will always return a matrix filled

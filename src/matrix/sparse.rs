@@ -68,11 +68,16 @@ impl<A: Element> SparseMatrix<A> {
     /// A valid matrix:
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
     /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let elements: Vec<MatrixElement<i64>> = data
+    ///     .iter()
+    ///     .map(|(i, j, val)| MatrixElement(*i, *j, *val))
+    ///     .collect();
+    ///
     /// let matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// assert_eq!(matrix.get(0, 0), Ok(&12));
@@ -84,7 +89,8 @@ impl<A: Element> SparseMatrix<A> {
     /// Bad data:
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
     /// let out_of_bounds = vec![MatrixElement(3, 0, 10), MatrixElement(1, 1, 4)];
     /// let duplicates = vec![MatrixElement(1, 1, 1), MatrixElement(1, 1, 5)];
@@ -282,20 +288,23 @@ impl<A: Element> SparseMatrix<A> {
     }
 
     /// Returns a mutable reference to the element if it exists.
-    /// Otherwise returns Err, unlike ['get'] which returns a 0
-    /// for elements not in the matrix.
     ///
-    /// ['get']: method.get
+    /// # Errors
+    /// NotFound and ElementOutOfBounds
     ///
     /// # Examples
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
     /// let data = [(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let elements: Vec<MatrixElement<i64>> = data
+    ///     .iter()
+    ///     .map(|(i, j, val)| MatrixElement(*i, *j, *val))
+    ///     .collect();
     /// let mut matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
     /// if let Ok(val) = matrix.get_mut(0, 0) {
@@ -306,7 +315,10 @@ impl<A: Element> SparseMatrix<A> {
     ///     *val = 7
     ///     }
     ///
-    /// let data: Vec<i64> = matrix.elements().map(|(_, _, val)| *val).collect();
+    /// let data: Vec<i64> = matrix
+    ///     .elements()
+    ///     .map(|(_, _, val)| *val)
+    ///     .collect();
     ///
     /// assert_eq!(data, vec![2i64, 42, 3, 7]);
     /// assert_eq!(matrix.get_mut(1, 1), Err(Error::NotFound));
@@ -346,15 +358,22 @@ impl<A: Element> SparseMatrix<A> {
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
     /// let data = vec![(0usize, 0usize, 12i8), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
     /// let result = vec![(0usize, 0usize, 12i8), (1, 4, 42), (2, 2, 3), (3, 5, 4)];
     ///
-    /// let elements: Vec<Element<i8>> = data.iter().map(|(i, j, val)| MatrixElement(*i, *j, *val)).collect();
+    /// let elements: Vec<MatrixElement<i8>> = data
+    ///     .iter()
+    ///     .map(|(i, j, val)| MatrixElement(*i, *j, *val))
+    ///     .collect();
     /// let matrix = SparseMatrix::new(4, 6, elements).unwrap();
     ///
-    /// let data: Vec<(usize, usize, i8)> = matrix.elements().map(|(i, j, val)| (i, j, *val)).collect();
+    /// let data: Vec<(usize, usize, i8)> = matrix
+    ///     .elements()
+    ///     .map(|(i, j, val)| (i, j, *val))
+    ///     .collect();
     ///
     /// assert_eq!(data, result);
     /// ```
@@ -368,14 +387,18 @@ impl<A: Element> SparseMatrix<A> {
     }
 
     /// Returns an iterator over all elements of the matrix, including the
-    /// zero elements.
+    /// zero elements. The elements are wrapped in an option.
+    ///
     /// # Examples
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
-    /// let matrix = SparseMatrix::new(3, 3, vec![MatrixElement(0usize, 0usize, 12i64), MatrixElement(2, 2, 4)]).unwrap();
+    /// let matrix = SparseMatrix::new(3, 3,
+    ///     vec![MatrixElement(0usize, 0usize, 12i64), MatrixElement(2, 2, 4)])
+    ///     .unwrap();
     ///
     /// let mut all_iter = matrix.all_elements();
     ///
@@ -420,22 +443,24 @@ impl<A: Element> SparseMatrix<A> {
         self.rows.as_slice()
     }
 
-    /// Returns a reference to the value. If no value exists then
-    /// 0 (default) is returned.
-    /// If out of bounds then error is returned.
+    /// Returns a reference to the value, if it exists.
+    ///
+    /// # Errors
+    /// NotFound, ElementOutOfBounds
     ///
     /// # Examples
     ///
     /// ```
     /// use matrixlab::error::Error;
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
     /// let data = vec![
     ///     (0usize, 0usize, 12i64),
     ///     (3, 5, 4), (2, 2, 3),
     ///     (1, 4, 42)];
     ///
-    /// let elements: Vec<Element<i64>> = data
+    /// let elements: Vec<MatrixElement<i64>> = data
     ///     .iter()
     ///     .map(|(i, j, val)| MatrixElement(*i, *j, *val))
     ///     .collect();
@@ -446,7 +471,7 @@ impl<A: Element> SparseMatrix<A> {
     /// assert_eq!(matrix.get(3, 5), Ok(&4));
     /// assert_eq!(matrix.get(2, 2), Ok(&3));
     /// assert_eq!(matrix.get(1, 4), Ok(&42));
-    /// assert_eq!(matrix.get(0, 1), Ok(&0));
+    /// assert_eq!(matrix.get(0, 1), Err(Error::NotFound));
     /// assert_eq!(matrix.get(4, 4), Err(Error::ElementOutOfBounds));
     /// assert_eq!(matrix.get(2, 6), Err(Error::ElementOutOfBounds));
     /// ```
@@ -517,7 +542,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
         let mut data = Vec::with_capacity(self.data.len() + other.data.len());
         let mut columns = Vec::with_capacity(self.data.len() + other.data.len());
 
-        //TODO: change to iterators for maybe speedup?
+        //TODO: change to par iterators for maybe speedup?
         for i in 0..num_rows {
             let left = self.get_row(i);
             for j in 0..num_columns {
