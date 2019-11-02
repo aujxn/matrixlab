@@ -159,15 +159,12 @@ mod sparse_vector_mult {
         ];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
-        let result: Vec<MatrixElement<u64>> = &mat * &vec![MatrixElement(0, 0, 1), MatrixElement(1, 0, 1)];
+        let result = &mat * &SparseVec::new(vec![(0, 1), (1, 1)], 2).unwrap();
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, vec![MatrixElement(0, 0, 3), MatrixElement(1, 0, 10)]);
+        assert_eq!(result, SparseVec::new(vec![(0, 3), (1, 10)], 2).unwrap());
     }
 
-}
-
-/*
     #[test]
     fn bigger_mult() {
         let elements = vec![
@@ -179,21 +176,19 @@ mod sparse_vector_mult {
         ];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(3, 3, elements.clone()).unwrap();
-        let result: Vec<MatrixElement<u64>> =
-            &mat * &vec![MatrixElement(0, 0, 7), MatrixElement(1, 0, 2), MatrixElement(2, 0, 1)];
+        let result = &mat * &SparseVec::new(vec![(0, 7), (1, 2), (2, 1)], 3).unwrap();
 
         //Check to make sure we got the same elements back
-        assert_eq!(
-            result,
-            vec![MatrixElement(0, 0, 16), MatrixElement(1, 0, 35), MatrixElement(2, 0, 11)]
-        );
+        assert_eq!(result, SparseVec::new(vec![(0, 16), (1, 35), (2, 11)], 3).unwrap());
     }
 }
 
-mod matrix_mult {
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+mod sparse_matrix_mult {
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::MatrixElement;
+
     #[test]
-    fn mult() {
+    fn sparse_transpose_and_mult() {
         let elements = vec![MatrixElement(0, 0, 2i64), MatrixElement(0, 1, 1)];
         // Create a new 2X2 matrix
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
@@ -211,7 +206,9 @@ mod matrix_mult {
 }
 
 mod iter {
-    use crate::matrix::sparse::SparseMatrix; use crate::MatrixElement;
+    use crate::matrix::sparse::SparseMatrix;
+    use crate::MatrixElement;
+
     #[test]
     fn all_elements_iter() {
         let elements = vec![MatrixElement(0, 0, 2i64), MatrixElement(0, 1, 1)];
@@ -219,11 +216,13 @@ mod iter {
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
         let all_elements = mat
             .all_elements()
-            .map(|(_, _, val)| *val)
+            .map(|(_, _, val)| {
+                match val {
+                    Some(val) => *val,
+                    None => 0,
+                }
+            })
             .collect::<Vec<i64>>();
-        print!("{:?}", all_elements);
         assert_eq!(vec![2i64, 1, 0, 0], all_elements);
     }
-
 }
-*/

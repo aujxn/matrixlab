@@ -97,7 +97,7 @@ let elements = vec![
 let mat = SparseMatrix::new(3, 3, elements).unwrap();
 let vec = DenseVec::new(vec![7, 2, 1]);
 
-let result: Vec<MatrixElement<u64>> = &mat * &vec;
+let result: DenseVec<u64> = &mat * &vec;
 let expected = DenseVec::new(vec![16, 35, 11]);
 
 assert_eq!(result, expected);
@@ -131,21 +131,25 @@ let c = vec![11i64, 7, 12, 2, 3, 2, 2, 1, 6, 7, 4, 3];
 
 let matrices: Vec<SparseMatrix<i64>> = vec![a, b]
     .iter()
-    .map(|((n, m), points)| {
+    .map(|((m, n), points)| {
         let elements = points
             .iter()
             .map(|(i, j, val)| MatrixElement(*i, *j, *val))
             .collect();
-            SparseMatrix::new(*n, *m, elements).unwrap()
+            SparseMatrix::new(*m, *n, elements).unwrap()
     })
     .collect();
 
+print!("{:?}, \n", matrices);
 let result: SparseMatrix<i64> = &matrices[0] * &matrices[1];
-let result: Vec<i64> = result.elements()
-    .map(|(_, _, val)| *val)
-    .collect();
 
-assert_eq!(c, result);
+let expected = c.iter().enumerate().map(|(index, val)| {
+    let i = index / 4;
+    let j = index % 4;
+    MatrixElement(i as usize, j as usize, *val)}).collect();
+let expected = SparseMatrix::new(3, 4, expected).unwrap();
+
+assert_eq!(expected, result);
 ```
 */
 

@@ -379,9 +379,9 @@ impl<A: Element> SparseMatrix<A> {
     ///
     /// let mut all_iter = matrix.all_elements();
     ///
-    /// assert_eq!(all_iter.next(), Some((0, 0, &12)));
-    /// assert_eq!(all_iter.next(), Some((0, 1, &0)));
-    /// assert_eq!(all_iter.skip(6).next(), Some((2, 2, &4)));
+    /// assert_eq!(all_iter.next(), Some((0, 0, Some(&12))));
+    /// assert_eq!(all_iter.next(), Some((0, 1, None)));
+    /// assert_eq!(all_iter.skip(6).next(), Some((2, 2, Some(&4))));
     /// ```
     pub fn all_elements(&self) -> MatrixIter<A> {
         MatrixIter::new(&self)
@@ -489,6 +489,12 @@ impl<A: Element + std::ops::AddAssign + Default> SparseMatrix<A> {
     }
 }
 
+impl<A: Element> SparseMatrix<A> {
+    fn get_row(&self, row: usize) -> (&[A], &[usize]) {
+        (&self.data[self.rows[row]..self.rows[row + 1]], &self.columns[self.rows[row]..self.rows[row + 1]])
+    }
+}
+
 impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
     /* TODO:
     pub fn sparse_mat_mul(&self, other: &SparseMatrix<A>) -> SparseMatrix<A> {
@@ -501,6 +507,46 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
         if other.num_rows() != self.num_columns() {
             return Err(Error::SizeMismatch);
         }
+
+        // number of rows in the results will be same as rows of self
+        let num_rows = self.num_rows();
+        let num_columns = other.num_columns();
+        let mut rows = Vec::with_capacity(self.rows.len());
+        rows.push(0);
+        //how much capacity for resulting data?
+        let mut data = Vec::with_capacity(self.data.len() + other.data.len());
+        let mut columns = Vec::with_capacity(self.data.len() + other.data.len());
+
+        //TODO: change to iterators for maybe speedup?
+        for i in 0..num_rows {
+            let left = self.get_row(i);
+            for j in 0..num_columns {
+                let mut result: Option<A> = None;
+                for (left_data, left_col) in left.0.iter().zip(left.1.iter()) {
+                    if let Ok(right_data) = other.get(*left_col, j) {
+                        let product = *left_data * *right_data;
+                        match result {
+                            None => result = Some(product),
+                            Some(sum) => result = Some(sum + product),
+                        }
+                    }
+                }
+                if let Some(val) = result {
+                    data.push(val);
+                    columns.push(j);
+                }
+            }
+            rows.push(data.len());
+        }
+
+        Ok(SparseMatrix {
+            num_rows,
+            num_columns,
+            rows,
+            data,
+            columns,
+        })
+
         //Otherwise get on with the multiplication
         //TODO: reserve exactly enough space for this
         //let mut points = Vec::new();
@@ -508,6 +554,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
         //right now this is really bad and does tons of allocs
         //compiler is unlikely to optimize the temp SparseVec's
         //from allocating a ton of vectors
+        /*
         let points = (0..other.num_columns)
             .into_par_iter()
             .map(|j| {
@@ -534,6 +581,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
             .collect();
 
         SparseMatrix::new(self.num_rows, other.num_columns, points)
+        */
     }
 
     /* TODO
@@ -760,9 +808,14 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseMatrix
     }
 }
 
-impl<A: Element + Display> Display for SparseMatrix<A> {
+impl<A: Element + Display + Default> Display for SparseMatrix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let elements: Vec<A> = self.all_elements().map(|(_, _, val)| *val).collect();
+        let elements: Vec<A> = self.all_elements().map(|(_, _, val)| {
+            match val {
+                Some(val) => *val,
+                None => A::default(),
+            }
+        }).collect();
         //We want to print a row out at a time
         let chunks = elements.chunks(self.num_columns());
         for chunk in chunks {

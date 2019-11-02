@@ -30,13 +30,13 @@ impl<'a, A: Element> MatrixIter<'a, A> {
 }
 
 impl<'a, A: Element> Iterator for MatrixIter<'a, A> {
-    type Item = (usize, usize, &'a A);
+    type Item = (usize, usize, Option<&'a A>);
     fn next(&mut self) -> Option<Self::Item> {
         //check if we are in bounds
         if self.row >= self.matrix.num_rows() {
             None
         } else {
-            let val = self.matrix.get(self.row, self.column).unwrap();
+            let val = self.matrix.get(self.row, self.column);
             let row = self.row;
             let col = self.column;
             if self.column == self.matrix.num_columns() - 1 {
@@ -45,8 +45,11 @@ impl<'a, A: Element> Iterator for MatrixIter<'a, A> {
             } else {
                 self.column += 1;
             }
-            //can't panic because of manual bounds check
-            Some((row, col, val))
+
+            match val {
+                Ok(val) => Some((row, col, Some(val))),
+                Err(_) => Some((row, col, None)),
+            }
         }
     }
 }
