@@ -135,6 +135,7 @@ impl<'a, A: Element> Iterator for RowIter<'a, A> {
             let data = self.matrix.get_data();
             let cols = self.matrix.get_columns();
 
+            self.row += 1;
             Some((&cols[*row_start..*row_end], &data[*row_start..*row_end]))
         }
     }

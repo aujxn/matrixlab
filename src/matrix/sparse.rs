@@ -515,7 +515,10 @@ impl<A: Element + std::ops::AddAssign + Default> SparseMatrix<A> {
 }
 
 impl<A: Element> SparseMatrix<A> {
-    fn get_row(&self, row: usize) -> (&[A], &[usize]) {
+    /// Gets the data of a row of the matrix
+    /// # Panics:
+    /// When an out of range row is provided
+    pub fn get_row(&self, row: usize) -> (&[A], &[usize]) {
         (&self.data[self.rows[row]..self.rows[row + 1]], &self.columns[self.rows[row]..self.rows[row + 1]])
     }
 }

@@ -63,6 +63,65 @@ mod matrix {
         //Check to make sure we got the same elements back
         assert_eq!(3u64, sum);
     }
+
+    #[test]
+    fn number_of_nonzeros_and_get_data() {
+        let elements = vec![
+            MatrixElement(0, 0, 2u64),
+            MatrixElement(0, 1, 1),
+            MatrixElement(1, 0, 3),
+            MatrixElement(1, 1, 7),
+            MatrixElement(3, 2, 11),
+        ];
+        // Create a new 4X4 matrix
+        let mat = SparseMatrix::new(4, 4, elements.clone()).unwrap();
+        let data = [2u64, 1, 3, 7, 11];
+        let rows = [0usize, 2, 4, 4, 5];
+        let cols = [0usize, 1, 0, 1, 2];
+
+        assert_eq!(mat.num_nonzero(), 5);
+        assert_eq!(mat.get_data(), &data);
+        assert_eq!(mat.get_rows(), &rows);
+        assert_eq!(mat.get_columns(), &cols);
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_row() {
+        let elements = vec![
+            MatrixElement(0, 0, 2u64),
+            MatrixElement(0, 1, 1),
+            MatrixElement(1, 0, 3),
+            MatrixElement(1, 1, 7),
+            MatrixElement(3, 2, 11),
+        ];
+        // Create a new 4X4 matrix
+        let mat = SparseMatrix::new(4, 4, elements.clone()).unwrap();
+        let data = [2u64, 1, 3, 7, 11];
+        let cols = [0usize, 1, 0, 1, 2];
+
+        assert_eq!(mat.get_row(0), (&data[0..2], &cols[0..2]));
+        assert_eq!(mat.get_row(1), (&data[2..4], &cols[2..4]));
+        assert_eq!(mat.get_row(2), (&data[4..4], &cols[4..4]));
+        assert_eq!(mat.get_row(3), (&data[4..5], &cols[4..5]));
+        mat.get_row(5);
+    }
+        
+    #[test]
+    fn get_row_sums() {
+        let elements = vec![
+            MatrixElement(0, 0, 2u64),
+            MatrixElement(0, 1, 1),
+            MatrixElement(1, 0, 3),
+            MatrixElement(1, 1, 7),
+            MatrixElement(3, 2, 11),
+        ];
+        // Create a new 4X4 matrix
+        let mat = SparseMatrix::new(4, 4, elements.clone()).unwrap();
+        let row_sums = mat.row_sums();
+
+        assert_eq!(row_sums, vec![3, 10, 0, 11]);
+    }
 }
 
 mod transpose {
@@ -125,7 +184,7 @@ mod dense_vector_mult {
             MatrixElement(1, 1, 7),
             MatrixElement(2, 2, 11),
         ];
-        // Create a new 2X2 matrix
+        // Create a new 3X3 matrix
         let mat = SparseMatrix::new(3, 3, elements.clone()).unwrap();
         let result = &mat * &DenseVec::new(vec![7, 2, 1]);
 
@@ -227,4 +286,28 @@ mod iter {
             .collect::<Vec<i64>>();
         assert_eq!(vec![2i64, 1, 0, 0], all_elements);
     }
+
+    #[test]
+    fn row_iter() {
+        let elements = vec![
+            MatrixElement(0, 0, 2u64),
+            MatrixElement(0, 1, 1),
+            MatrixElement(1, 0, 3),
+            MatrixElement(1, 1, 7),
+            MatrixElement(3, 2, 11),
+        ];
+        // Create a new 3X3 matrix
+        let mat = SparseMatrix::new(4, 4, elements.clone()).unwrap();
+
+        let mut row_iter = mat.row_iter();
+        let data = [2u64, 1, 3, 7, 11];
+        let cols = [0usize, 1, 0, 1, 2];
+
+        assert_eq!(row_iter.next(), Some((&cols[0..2], &data[0..2])));
+        assert_eq!(row_iter.next(), Some((&cols[2..4], &data[2..4])));
+        assert_eq!(row_iter.next(), Some((&cols[4..4], &data[4..4])));
+        assert_eq!(row_iter.next(), Some((&cols[4..5], &data[4..5])));
+        assert_eq!(row_iter.next(), None);
+    }
+
 }
