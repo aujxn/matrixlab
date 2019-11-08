@@ -19,6 +19,8 @@ mod matrix {
             .collect();
 
         //Check to make sure we got the same elements back
+        assert_eq!(mat.num_columns(), 2);
+        assert_eq!(mat.num_rows(), 2);
         assert_eq!(elements, new_elements);
     }
 
