@@ -691,9 +691,7 @@ impl<A: Element + Mul<Output = A> + Add<Output = A> + Default> SparseMatrix<A> {
     */
 }
 
-/* gmres is currently out of order
- *
- * come back soon...
+/* gmres is getting rebuilt to be fast fast fast
 //We can only do gmres with f64 types
 impl SparseMatrix<f64> {
     /// Solves a linear system using the generalized minimal residual method.
@@ -702,15 +700,17 @@ impl SparseMatrix<f64> {
     /// # Example
     ///
     /// ```
-    /// use matrixlab::matrix::sparse::{Element, SparseMatrix};
+    /// use matrixlab::MatrixElement;
+    /// use matrixlab::matrix::sparse::SparseMatrix;
+    /// use matrixlab::vector::dense::DenseVec;
     ///
     /// let elements = vec![MatrixElement(0, 0, 2f64), MatrixElement(1, 1, 2f64), MatrixElement(0, 1, 1.0)];
     /// let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
     ///
     /// let result = mat
-    ///     .gmres(vec![3.0, 2.0], 100000, 1.0 / 1000000.0, 50)
+    ///     .gmres(DenseVec::new(vec![3.0, 2.0]), 1000, 1.0 / 1000000.0, 50)
     ///     .unwrap();
-    ///     assert_eq!(result, vec![1.0, 1.0]);
+    ///     assert_eq!(result, DenseVec::new(vec![1.0, 1.0]));
     /// ```
     pub fn gmres(
         &self,
@@ -723,36 +723,40 @@ impl SparseMatrix<f64> {
         if self.num_columns() != self.num_rows() {
             return Err(Error::SizeMismatch);
         }
-        //TODO: These maybe should be parameters to the function
-        //^ It has been made so
-        //let max_iterations = 1000;
         let mut i = 0;
-        //Tolerance is 10^-6
-        //let tolerance = 1.0/1000000.0;
+        let m = self.num_columns();
         // Create our guess, the 0 vector
-        let mut x: DenseVec<f64> = DenseVec::new([0.0f64]
-            .into_iter()
-            .cycle()
-            .take(self.num_columns())
-            .map(|x| *x)
-            .collect());
-        let mut r = b.sub(&(self * &x));
-        let r_norm = r.norm();
-        let final_norm = r_norm * tolerance;
+        let mut x: DenseVec<f64> = DenseVec::new(vec![0.0; m]);
+        let mut residual = b.clone();       // b is first residual because Ax = 0
+        let residual_norm = residual.norm();
+        let final_norm = residual_norm * tolerance;
 
         // Our initial search direction, the first column of P
-        let p = r.normalize();
-        let mut big_b = DenseMatrix::new(vec![self * &p]);
-        let mut big_p = DenseMatrix::new(vec![p]);
+        // This is just the normalized first residual vector
+        let initial_p = residual.normalize();
+        println!("{:?}", initial_p);
+
+        // These are dense matrices but represented as Vectors of columns
+        // This is easier than using the DenseMatrix abstraction because
+        // each iteration a column is added to each matrix.
+        let mut big_b: Vec<DenseVec<f64>> = vec![self * &initial_p];
+        let mut big_p: Vec<DenseVec<f64>> = vec![initial_p];
+
         loop {
-            let alpha = big_b.least_squares(&r)?;
+            let cols = big_b.len();
+            let B = DenseMatrix::from_columns(m, cols, big_b.clone())?;
+                
+            let p = DenseMatrix::from_columns(m, big_p.len(), big_p.clone())?;
+            let alpha = B.least_squares(&residual)?;
+            if i == 0 {
+                println!("least squares: {:?}", alpha);
+            }
 
-            x = x.add(&big_p.dense_vec_mul(&alpha));
-            //println!("X: {:?}",x);
+            x = x.add(&p.dense_vec_mul(&alpha));
 
-            r = r.sub(&big_b.dense_vec_mul(&alpha));
+            residual = residual.sub(&B.dense_vec_mul(&alpha));
             //println!("R: {:?}",r);
-            let norm = r.norm();
+            let norm = residual.norm();
             //println!("i: {} NORM: {}",i,norm);
             if norm < final_norm {
                 return Ok(x);
@@ -761,22 +765,22 @@ impl SparseMatrix<f64> {
             }
             i += 1;
 
-            if big_p.num_columns() < max_search_directions {
-                let p = big_p.orthogonal_to(&r).normalize();
-                big_b.add_column(self.vec_mul(&p)?);
-                big_p.add_column(p);
+            if cols < max_search_directions {
+                let p = p.orthogonal_to(&residual).normalize();
+                big_b.push(self * &p);
+                big_p.push(p);
             } else {
                 //Restart
                 let result = self * &x;
-                r = b.sub(&result);
+                residual = b.sub(&result);
                 //println!("RESTARTED: {:?}",&result);
                 //let r_norm = r.norm();
                 //let final_norm = r_norm * tolerance;
 
                 // Our initial search direction, the first column of P
-                let p = r.normalize();
-                big_b = DenseMatrix::new(vec![self * &p]);
-                big_p = DenseMatrix::new(vec![p]);
+                let p = residual.normalize();
+                big_b = vec![self * &p];
+                big_p = vec![p];
             }
         }
     }

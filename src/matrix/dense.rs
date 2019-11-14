@@ -58,7 +58,7 @@ impl<A: Element> DenseMatrix<A> {
             .map(|col| col.get_data())
             .flatten()
             .map(|&x| x);
-        let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_rows, num_columns))?;
+        let mut data: Array<A, Ix2> = Array::from_iter(iter).into_shape((num_columns, num_rows))?;
         data.swap_axes(0, 1);
         Ok(DenseMatrix { data })
     }
