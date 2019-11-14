@@ -3,10 +3,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 mod matrix {
-    use crate::error::Error;
-    use crate::matrix::dense::DenseMatrix;
-    use crate::vector::dense::DenseVec;
-    use crate::MatrixElement;
+    use matrixlab::error::Error;
+    use matrixlab::matrix::dense::DenseMatrix;
+    use matrixlab::vector::dense::DenseVec;
+    use matrixlab::MatrixElement;
     use ndarray::Array;
     use std::iter::FromIterator;
 
@@ -149,8 +149,8 @@ mod matrix {
 }
 
 mod orthogonal {
-    use crate::matrix::dense::DenseMatrix;
-    use crate::vector::dense::DenseVec;
+    use matrixlab::matrix::dense::DenseMatrix;
+    use matrixlab::vector::dense::DenseVec;
 
     #[test]
     fn factor_dense_matrix_into_matrix_with_orthonormal_columns() {

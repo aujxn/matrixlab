@@ -3,9 +3,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 mod matrix {
-    use crate::error::Error;
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::MatrixElement;
+    use matrixlab::error::Error;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn matrix_creation() {
@@ -106,7 +106,7 @@ mod matrix {
         assert_eq!(mat.get_row(3), (&data[4..5], &cols[4..5]));
         mat.get_row(5);
     }
-        
+
     #[test]
     fn get_row_sums() {
         let elements = vec![
@@ -125,8 +125,8 @@ mod matrix {
 }
 
 mod transpose {
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::MatrixElement;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn transpose() {
@@ -143,9 +143,9 @@ mod transpose {
 }
 
 mod dense_vector_mult {
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::vector::dense::DenseVec;
-    use crate::MatrixElement;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::vector::dense::DenseVec;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn dense_vec_mult() {
@@ -194,9 +194,9 @@ mod dense_vector_mult {
 }
 
 mod sparse_vector_mult {
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::MatrixElement;
-    use crate::vector::sparse::SparseVec;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::vector::sparse::SparseVec;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn mult() {
@@ -240,13 +240,16 @@ mod sparse_vector_mult {
         let result = &mat * &SparseVec::new(vec![(0, 7), (1, 2), (2, 1)], 3).unwrap();
 
         //Check to make sure we got the same elements back
-        assert_eq!(result, SparseVec::new(vec![(0, 16), (1, 35), (2, 11)], 3).unwrap());
+        assert_eq!(
+            result,
+            SparseVec::new(vec![(0, 16), (1, 35), (2, 11)], 3).unwrap()
+        );
     }
 }
 
 mod sparse_matrix_mult {
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::MatrixElement;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn sparse_transpose_and_mult() {
@@ -267,8 +270,8 @@ mod sparse_matrix_mult {
 }
 
 mod iter {
-    use crate::matrix::sparse::SparseMatrix;
-    use crate::MatrixElement;
+    use matrixlab::matrix::sparse::SparseMatrix;
+    use matrixlab::MatrixElement;
 
     #[test]
     fn all_elements_iter() {
@@ -277,11 +280,9 @@ mod iter {
         let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
         let all_elements = mat
             .all_elements()
-            .map(|(_, _, val)| {
-                match val {
-                    Some(val) => *val,
-                    None => 0,
-                }
+            .map(|(_, _, val)| match val {
+                Some(val) => *val,
+                None => 0,
             })
             .collect::<Vec<i64>>();
         assert_eq!(vec![2i64, 1, 0, 0], all_elements);

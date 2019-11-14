@@ -3,9 +3,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::error::Error;
-use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
-use crate::matrix::sparse::SparseMatrix;
 use crate::matrix::dense::DenseMatrix;
+use crate::matrix::sparse::SparseMatrix;
+use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
 use crate::vector::dense::DenseVec;
 use crate::vector::sparse::SparseVec;
 use crate::{Element, MatrixElement};
@@ -15,15 +15,15 @@ use std::ops::{Add, Mul};
 
 // I didn't use this library's abstractions for the data structures in this method.
 // The reason for this is that this is a highly iterative process, and I wanted
-// complete control of the allocations that are made. This makes this function 
+// complete control of the allocations that are made. This makes this function
 // slightly more convoluted but much more efficient.
 // To compensate for this, I have written very detailed comments.
 pub fn gmres(
-    a: SparseMatrix<f64>,               // The system to solve. Referred to as A below.
-    b: DenseVec<f64>,                   // The vector to solve Ax = b for x.
-    tolerance: f64,                     // The acceptable level of residual. Calculated b - Ax.
-    max_iter: usize,                    // Maximum number of times to guess the solution of x.
-    max_search_directions: usize,       // The number of search vectors to consider before restarting.
+    a: SparseMatrix<f64>,         // The system to solve. Referred to as A below.
+    b: DenseVec<f64>,             // The vector to solve Ax = b for x.
+    tolerance: f64,               // The acceptable level of residual. Calculated b - Ax.
+    max_iter: usize,              // Maximum number of times to guess the solution of x.
+    max_search_directions: usize, // The number of search vectors to consider before restarting.
 ) -> Result<DenseVec<f64>, Error> {
     /* Step one: allocation */
 
@@ -50,7 +50,7 @@ pub fn gmres(
      *                            Workspaces                             *
      *********************************************************************/
 
-    /************ 
+    /************
      * Matrices *
      ************/
 
@@ -95,8 +95,8 @@ pub fn gmres(
         .map(|(i, _)| Vec::with_capacity(i + 1))
         .collect();
 
-    /*********** 
-     * Vectors * 
+    /***********
+     * Vectors *
      ***********/
 
     // current iterate's guess to the solution of Ax = b.
@@ -115,49 +115,39 @@ pub fn gmres(
     /* Step two: initialization */
 
     // first guess is the 0 vector
-    x = (0..dimension)
-        .map(|_| 0.0)
-        .collect();
+    x = (0..dimension).map(|_| 0.0).collect();
 
     // first residual is just b, because b - Ax is the same as b - 0 (Ax = 0)
     residual = b.get_data().iter().map(|&x| x).collect();
-    let mut residual_norm = residual
-        .iter()
-        .fold(0.0, |acc, x| acc + x * x);
+    let mut residual_norm = residual.iter().fold(0.0, |acc, x| acc + x * x);
 
     /* Step three: iterate */
     loop {
         // reset the workspaces when max search directions is hit (or starting first iteration)
         if m == 1 {
             // scale the residual so it is normalized. This is our first column of P
-            workspace_p[0] = residual
-                .iter()
-                .map(|x| x * (1.0 / residual_norm))
-                .collect();
+            workspace_p[0] = residual.iter().map(|x| x * (1.0 / residual_norm)).collect();
 
             // perform the matrix vector multiplication Ap_0 to get first B column
             workspace_b[0] = a
                 .row_iter()
                 .map(|(cols, data)| {
-                    data
-                        .iter()
+                    data.iter()
                         .zip(cols.iter())
                         .fold(0.0, |acc, (val, &col)| acc + val * workspace_p[0][col])
                 })
-            .collect();
+                .collect();
 
-        // first orthonormal decomposition column of B by normalizing b_zero
-        let b_zero_norm = workspace_b[0]
-            .iter()
-            .fold(0.0, |acc, x| acc + x * x);
-        workspace_q[0] = workspace_b[0]
-            .iter()
-            .map(|x| x * (1.0 / b_zero_norm))
-            .collect();
+            // first orthonormal decomposition column of B by normalizing b_zero
+            let b_zero_norm = workspace_b[0].iter().fold(0.0, |acc, x| acc + x * x);
+            workspace_q[0] = workspace_b[0]
+                .iter()
+                .map(|x| x * (1.0 / b_zero_norm))
+                .collect();
 
-        // upper triangular R is a matrix with a single value
-        workspace_r[0].clear();
-        workspace_r[0].push(b_zero_norm);
+            // upper triangular R is a matrix with a single value
+            workspace_r[0].clear();
+            workspace_r[0].push(b_zero_norm);
         }
 
         // compute beta vector in order to solve least squares
@@ -165,101 +155,110 @@ pub fn gmres(
             .iter()
             .take(m)
             .map(|row| {
-                row
-                    .iter()
+                row.iter()
                     .zip(residual.iter())
                     .fold(0.0, |acc, (q_val, r_val)| acc + q_val * r_val)
             })
-        .collect();
-
-    // backsolve least squares
-    for row in (0..m).rev() {
-        let inner = workspace_r
-            .iter()
-            .skip(row)
-            .map(|col| col[row])
-            .zip(alpha.iter().skip(row))
-            .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
-        alpha[row] = (beta[row] - inner) / workspace_r[row][row];
-    }
-
-    // compute the next iterate
-    x = (0..dimension)
-        .map(|row| {
-            (0..m)
-                .map(|col| workspace_p[col][row])
-                .zip(alpha.iter())
-                .fold(0.0, |acc, (p_val, alpha_val)| acc + p_val * alpha_val)
-        })
-    .zip(x.iter())
-        .map(|(p_alpha, x_val)| p_alpha + x_val)
-        .collect();
-
-    // compute the next residual
-    residual = (0..dimension)
-        .map(|row| {
-            (0..m)
-                .map(|col| workspace_b[col][row])
-                .zip(alpha.iter())
-                .fold(0.0, |acc, (b_val, alpha_val)| acc + b_val * alpha_val)
-        })
-    .zip(residual.iter())
-        .map(|(b_alpha, r_val)| r_val - b_alpha)
-        .collect();
-    residual_norm = residual
-        .iter()
-        .fold(0.0, |acc, x| acc + x * x);
-
-    if residual_norm < tolerance {
-        return Ok(DenseVec::new(x));
-    }
-
-    iteration += 1;
-
-    if iteration == max_iter {
-        return Err(Error::ExceededIterations(x.clone()));
-    }
-
-    if m < max_search_directions {
-        // compute next upper triangular column vector (except last element)
-        workspace_r[m] = workspace_p
-            .iter()
-            .take(m)
-            .map(|p_col| {
-                p_col
-                    .iter()
-                    .zip(residual.iter())
-                    .fold(0.0, |acc, (p_val, r_val)| acc + p_val * r_val)
-            })
-        .collect();
-
-        // compute next search direction
-        workspace_p[m] = (0..dimension)
-            .map(|i| {
-                let sum = (0..m)
-                    .fold(0.0, |acc, j| acc + workspace_r[m][j] * workspace_p[j][i]);
-                residual[i] - sum
-            })
             .collect();
 
-        // push the norm of the new search vector onto R column and normalize new search vector
-        let norm = workspace_p[m]
-            .iter()
-            .fold(0.0, |acc, x| acc + x * x);
-        workspace_r[m].push(norm);
-        workspace_p[m] = workspace_p[m]
-            .iter()
-            .map(|p_value| p_value * 1.0 / norm)
+        // backsolve least squares
+        for row in (0..m).rev() {
+            let inner = workspace_r
+                .iter()
+                .skip(row)
+                .map(|col| col[row])
+                .zip(alpha.iter().skip(row))
+                .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
+            alpha[row] = (beta[row] - inner) / workspace_r[row][row];
+        }
+
+        // compute the next iterate
+        x = (0..dimension)
+            .map(|row| {
+                (0..m)
+                    .map(|col| workspace_p[col][row])
+                    .zip(alpha.iter())
+                    .fold(0.0, |acc, (p_val, alpha_val)| acc + p_val * alpha_val)
+            })
+            .zip(x.iter())
+            .map(|(p_alpha, x_val)| p_alpha + x_val)
             .collect();
 
-        // add next krylov vector to B
-        // add next orthonormal vector to Q
-        // add next column to upper triangular R
-        // update search direction counter
-        m += 1;
-    } else {
-        // reset the search direction counter
-        m = 1;
-    }
+        // compute the next residual
+        residual = (0..dimension)
+            .map(|row| {
+                (0..m)
+                    .map(|col| workspace_b[col][row])
+                    .zip(alpha.iter())
+                    .fold(0.0, |acc, (b_val, alpha_val)| acc + b_val * alpha_val)
+            })
+            .zip(residual.iter())
+            .map(|(b_alpha, r_val)| r_val - b_alpha)
+            .collect();
+        residual_norm = residual.iter().fold(0.0, |acc, x| acc + x * x);
+
+        if residual_norm < tolerance {
+            return Ok(DenseVec::new(x));
+        }
+
+        iteration += 1;
+
+        if iteration == max_iter {
+            return Err(Error::ExceededIterations(x.clone()));
+        }
+
+        if m < max_search_directions {
+            // compute next upper triangular column vector (except last element)
+            workspace_r[m] = workspace_p
+                .iter()
+                .take(m)
+                .map(|p_col| {
+                    p_col
+                        .iter()
+                        .zip(residual.iter())
+                        .fold(0.0, |acc, (p_val, r_val)| acc + p_val * r_val)
+                })
+                .collect();
+
+            // compute next search direction
+            workspace_p[m] = (0..dimension)
+                .map(|i| {
+                    let sum =
+                        (0..m).fold(0.0, |acc, j| acc + workspace_r[m][j] * workspace_p[j][i]);
+                    residual[i] - sum
+                })
+                .collect();
+
+            // push the norm of the new search vector onto R column and normalize new search vector
+            let norm = workspace_p[m].iter().fold(0.0, |acc, x| acc + x * x);
+            workspace_r[m].push(norm);
+            workspace_p[m] = workspace_p[m]
+                .iter()
+                .map(|p_value| p_value * 1.0 / norm)
+                .collect();
+
+            // add next krylov vector to B
+            workspace_b[m] = a
+                .row_iter()
+                .map(|(cols, data)| {
+                    data.iter()
+                        .zip(cols.iter())
+                        .fold(0.0, |acc, (val, &col)| acc + val * workspace_p[m][col])
+                })
+                .collect();
+
+            // add next orthonormal vector to Q
+            let norm = workspace_b[m].iter().fold(0.0, |acc, x| acc + x * x);
+            workspace_q[m] = workspace_b[m]
+                .iter()
+                .map(|b_value| b_value * 1.0 / norm)
+                .collect();
+
+            // update search direction counter
+            m += 1;
+        } else {
+            // reset the search direction counter
+            m = 1;
+        }
     }
 }

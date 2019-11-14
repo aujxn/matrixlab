@@ -524,7 +524,10 @@ impl<A: Element> SparseMatrix<A> {
     /// # Panics:
     /// When an out of range row is provided
     pub fn get_row(&self, row: usize) -> (&[A], &[usize]) {
-        (&self.data[self.rows[row]..self.rows[row + 1]], &self.columns[self.rows[row]..self.rows[row + 1]])
+        (
+            &self.data[self.rows[row]..self.rows[row + 1]],
+            &self.columns[self.rows[row]..self.rows[row + 1]],
+        )
     }
 }
 
@@ -750,7 +753,7 @@ impl SparseMatrix<f64> {
         loop {
             let cols = big_b.len();
             let B = DenseMatrix::from_columns(m, cols, big_b.clone())?;
-                
+
             let p = DenseMatrix::from_columns(m, big_p.len(), big_p.clone())?;
             let alpha = B.least_squares(&residual)?;
             if i == 0 {
@@ -847,12 +850,13 @@ impl<A: Mul<Output = A> + Add<Output = A> + Element + Default> Mul<&SparseMatrix
 
 impl<A: Element + Display + Default> Display for SparseMatrix<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let elements: Vec<A> = self.all_elements().map(|(_, _, val)| {
-            match val {
+        let elements: Vec<A> = self
+            .all_elements()
+            .map(|(_, _, val)| match val {
                 Some(val) => *val,
                 None => A::default(),
-            }
-        }).collect();
+            })
+            .collect();
         //We want to print a row out at a time
         let chunks = elements.chunks(self.num_columns());
         for chunk in chunks {

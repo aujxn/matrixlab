@@ -130,9 +130,6 @@ pub mod matrix;
 /// Sparse and dense vectors
 pub mod vector;
 
-#[cfg(test)]
-mod test;
-
 use error::Error;
 use matrix::sparse::SparseMatrix;
 use std::fs::File;
