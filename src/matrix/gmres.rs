@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use super::dense::DenseMatrix;
 use crate::error::Error;
 use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
 use crate::matrix::sparse::SparseMatrix;
@@ -58,7 +57,7 @@ pub fn gmres(
     // Indexing these workspaces is reverse from most of the lib. Because
     // we will be adding columns to these matrices, they are indexed by
     // column on the outer dimension and then row on the inner.
-   
+
     // workspace_b (B):
     // This is essentially the Krylov subspace for matrix A. This is the
     // matrix used in the least squares problem needed to find the next
@@ -143,7 +142,7 @@ pub fn gmres(
                     data
                         .iter()
                         .zip(cols.iter())
-                        .fold(0.0, |acc, (col, val)| acc + val * workspace_p[0][col])
+                        .fold(0.0, |acc, (val, &col)| acc + val * workspace_p[0][col])
                 })
             .collect();
 
@@ -162,76 +161,105 @@ pub fn gmres(
         }
 
         // compute beta vector in order to solve least squares
-        // TODO: fix because use m, not whole thing
         beta = workspace_q
             .iter()
+            .take(m)
             .map(|row| {
                 row
                     .iter()
                     .zip(residual.iter())
                     .fold(0.0, |acc, (q_val, r_val)| acc + q_val * r_val)
             })
-            .collect();
+        .collect();
 
-        // backsolve least squares
-        // TODO needs fix to not over iterate on R
-        for row in (0..m).rev() {
-            let inner = workspace_r
-                .iter()
-                .skip(row)
-                .map(|col| col[row])
-                .zip(alpha.iter.skip(row))
-                .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
-            alpha[row] = (beta[row] - inner) / workspace_r[row][row];
+    // backsolve least squares
+    for row in (0..m).rev() {
+        let inner = workspace_r
+            .iter()
+            .skip(row)
+            .map(|col| col[row])
+            .zip(alpha.iter().skip(row))
+            .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
+        alpha[row] = (beta[row] - inner) / workspace_r[row][row];
+    }
+
+    // compute the next iterate
+    x = (0..dimension)
+        .map(|row| {
+            (0..m)
+                .map(|col| workspace_p[col][row])
+                .zip(alpha.iter())
+                .fold(0.0, |acc, (p_val, alpha_val)| acc + p_val * alpha_val)
         })
+    .zip(x.iter())
+        .map(|(p_alpha, x_val)| p_alpha + x_val)
+        .collect();
 
-        // compute the next iterate
-        x = (0..dimension)
-            .map(|row| {
-                (0..m)
-                    .map(|col| workspace_p[col][row])
-                    .zip(alpha.iter())
-                    .fold(0.0, |acc, (p_val, alpha_val)| acc + p_val * alpha_val)
+    // compute the next residual
+    residual = (0..dimension)
+        .map(|row| {
+            (0..m)
+                .map(|col| workspace_b[col][row])
+                .zip(alpha.iter())
+                .fold(0.0, |acc, (b_val, alpha_val)| acc + b_val * alpha_val)
+        })
+    .zip(residual.iter())
+        .map(|(b_alpha, r_val)| r_val - b_alpha)
+        .collect();
+    residual_norm = residual
+        .iter()
+        .fold(0.0, |acc, x| acc + x * x);
+
+    if residual_norm < tolerance {
+        return Ok(DenseVec::new(x));
+    }
+
+    iteration += 1;
+
+    if iteration == max_iter {
+        return Err(Error::ExceededIterations(x.clone()));
+    }
+
+    if m < max_search_directions {
+        // compute next upper triangular column vector (except last element)
+        workspace_r[m] = workspace_p
+            .iter()
+            .take(m)
+            .map(|p_col| {
+                p_col
+                    .iter()
+                    .zip(residual.iter())
+                    .fold(0.0, |acc, (p_val, r_val)| acc + p_val * r_val)
             })
-            .zip(x.iter())
-            .map(|(p_alpha, x_val)| p + x_val)
+        .collect();
+
+        // compute next search direction
+        workspace_p[m] = (0..dimension)
+            .map(|i| {
+                let sum = (0..m)
+                    .fold(0.0, |acc, j| acc + workspace_r[m][j] * workspace_p[j][i]);
+                residual[i] - sum
+            })
             .collect();
 
-        // compute the next residual
-        residual = (0..dimension)
-            .map(|row| {
-                (0..m)
-                    .map(|col| workspace_b[col][row])
-                    .zip(alpha.iter())
-                    .fold(0.0, |acc, (b_val, alpha_val)| acc + p_val * alpha_val)
-            })
-            .zip(residual.iter())
-            .map(|(b_alpha, r_val)| r_val - b_alpha)
-            .collect();
-        residual_norm = residual
+        // push the norm of the new search vector onto R column and normalize new search vector
+        let norm = workspace_p[m]
             .iter()
             .fold(0.0, |acc, x| acc + x * x);
+        workspace_r[m].push(norm);
+        workspace_p[m] = workspace_p[m]
+            .iter()
+            .map(|p_value| p_value * 1.0 / norm)
+            .collect();
 
-        if residual_norm < tolerance {
-            return DenseVec::new(x);
-        }
-
-        i += 1;
-
-        if i == max_iter {
-            return Err(Error::ExceededIterations(x.clone()));
-        }
-
-        if m < max_search_directions {
-            // compute next search direction
-            // add next search vector to P
-            // add next krylov vector to B
-            // add next orthonormal vector to Q
-            // add next column to upper triangular R
-            m += 1;
-        } else {
-            m = 1;
-        }
-
+        // add next krylov vector to B
+        // add next orthonormal vector to Q
+        // add next column to upper triangular R
+        // update search direction counter
+        m += 1;
+    } else {
+        // reset the search direction counter
+        m = 1;
+    }
     }
 }

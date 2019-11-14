@@ -10,3 +10,6 @@ pub mod sparse;
 
 /// Sparse matrix iterators
 pub mod sparse_matrix_iter;
+
+/// General Minimal Residual Method (Krylov) solver w/QR decomposition (Arnoldi's)
+pub mod gmres;

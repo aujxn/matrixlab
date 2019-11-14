@@ -287,6 +287,11 @@ impl<A: Element> SparseMatrix<A> {
         self.num_rows
     }
 
+    /// Determines if the matrix is square
+    pub fn is_square(&self) -> bool {
+        self.num_rows == self.num_columns
+    }
+
     /// Returns a mutable reference to the element if it exists.
     ///
     /// # Errors
