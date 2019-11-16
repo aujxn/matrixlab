@@ -204,11 +204,11 @@ pub fn from_file(filename: &Path) -> Result<SparseMatrix<f64>, Error> {
             // Push the symmetric entry, unless we're on the diagonal
             _ => {
                 if column != row {
-                    entries.push(MatrixElement(column, row, data))
+                    entries.push(MatrixElement(column - 1, row - 1, data))
                 }
             }
         }
-        entries.push(MatrixElement(row, column, data));
+        entries.push(MatrixElement(row - 1, column - 1, data));
     }
     // And finally we create the new matrix
 

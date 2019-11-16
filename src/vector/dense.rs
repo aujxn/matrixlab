@@ -33,6 +33,10 @@ impl<A: Element> DenseVec<A> {
     pub fn get_data(&self) -> &Vec<A> {
         &self.data
     }
+
+    pub fn get_data_mut(&mut self) -> &mut Vec<A> {
+        &mut self.data
+    }
 }
 
 //TODO: update to work with complex and f32 types
