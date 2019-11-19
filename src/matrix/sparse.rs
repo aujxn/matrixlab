@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use super::dense::DenseMatrix;
+//use super::dense::DenseMatrix;
 use crate::error::Error;
 use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
 use crate::vector::dense::DenseVec;
@@ -71,7 +71,7 @@ impl<A: Element> SparseMatrix<A> {
     /// use matrixlab::MatrixElement;
     /// use matrixlab::matrix::sparse::SparseMatrix;
     ///
-    /// let data = vec![(0usize, 0usize, 12i64), (3, 5, 4), (2, 2, 3), (1, 4, 42)];
+    /// let data = vec![(0usize, 0usize, 12i64),(3, 5, 4), (2, 2, 3), (1, 4, 42)];
     ///
     /// let elements: Vec<MatrixElement<i64>> = data
     ///     .iter()

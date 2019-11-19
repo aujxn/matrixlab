@@ -1,24 +1,39 @@
-use matrixlab::matrix::sparse::SparseMatrix;
-use matrixlab::MatrixElement;
-use matrixlab::vector::dense::DenseVec;
+use itertools::join;
 use matrixlab::matrix::gmres::gmres;
-use matrixlab::from_file;
-use std::path::Path;
+use matrixlab::matrix::sparse::SparseMatrix;
+use matrixlab::vector::dense::DenseVec;
+use matrixlab::MatrixElement;
+use rand::prelude::*;
 
 fn main() {
+    let mut matrix: Vec<MatrixElement<f64>> = vec![];
+    let mut x = vec![];
+    let n = 1000;
 
-    let path = Path::new("mcca.mtx");
-    let a = from_file(path).unwrap();
-    let mut b = Vec::with_capacity(180);
-
-    for i in 0..180{
-        b.push(1 as f64)
+    let mut rng = rand::thread_rng();
+    for i in 0..n {
+        x.push(rng.gen_range(-10.0, 10.0));
+        for j in 0..n {
+            if i == j {
+                if rng.gen() {
+                    matrix.push(MatrixElement(i, j, rng.gen_range(70.0, 100.0)));
+                } else {
+                    matrix.push(MatrixElement(i, j, rng.gen_range(-100.0, -70.0)));
+                }
+            } else if rng.gen_range(0, 100) > 80 {
+                matrix.push(MatrixElement(i, j, rng.gen_range(-10.0, 10.0)));
+            }
+        }
     }
-    let x = DenseVec::new(b);
 
-    let b = &a * &x;
+    let matrix = SparseMatrix::new(n, n, matrix).unwrap();
+    let x = DenseVec::new(x);
 
-    let result = gmres(a, b, 1000.0, 1000000, 25).unwrap();
-    print!("{:?}", result);
+    let b = &matrix * &x;
+
+    let result = gmres(matrix.clone(), b.clone(), 0.000001, 1000000, 50).unwrap();
+    assert_eq!(
+        join(x.get_data().iter().map(|x| format!("{:.2}", x)), &","),
+        join(result.get_data().iter().map(|x| format!("{:.2}", x)), &",")
+    );
 }
-

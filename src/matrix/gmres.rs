@@ -3,15 +3,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::error::Error;
-use crate::matrix::dense::DenseMatrix;
 use crate::matrix::sparse::SparseMatrix;
-use crate::matrix::sparse_matrix_iter::{ElementsIter, MatrixIter, RowIter};
 use crate::vector::dense::DenseVec;
-use crate::vector::sparse::SparseVec;
-use crate::{Element, MatrixElement};
 use rayon::prelude::*;
-use std::fmt::{self, Display};
-use std::ops::{Add, Mul};
 
 // I didn't use this library's abstractions for the data structures in this method.
 // The reason for this is that this is a highly iterative process, and I wanted
@@ -187,7 +181,7 @@ pub fn gmres(
                     .fold(0.0, |acc, (q_val, r_val)| acc + q_val * r_val)
             })
             .collect();
-            //println!("beta: {:?}", beta);
+        //println!("beta: {:?}", beta);
 
         // backsolve least squares
         for row in (0..m).rev() {
@@ -234,16 +228,24 @@ pub fn gmres(
             .map(|(b_alpha, r_val)| r_val - b_alpha)
             .collect();
         residual_norm = residual.iter().fold(0.0, |acc, x| acc + x * x).sqrt();
+        /*
+        if new_residual_norm > residual_norm {
+            panic!("residual increased");
+        } else {
+            residual_norm = new_residual_norm;
+        }
+        */
         //println!("new residual: {:?}", residual);
         //println!("new residual norm: {:?}", residual_norm);
 
         if residual_norm < tolerance {
+            println!("Iterations: {:?}", iteration);
             return Ok(DenseVec::new(x));
         }
 
         iteration += 1;
-        if iteration % 10000 == 0 {
-            println!{"{:?}", residual_norm};
+        if iteration % 100 == 0 {
+            println! {"{:?}", residual_norm};
         }
         //println!("\niteration: {:?}", iteration);
 
@@ -266,13 +268,17 @@ pub fn gmres(
                 })
                 .collect();
             // calculate the next search vector
-            workspace_p[m] = residual.iter()
+            workspace_p[m] = residual
+                .iter()
                 .enumerate()
                 .map(|(row, r_val)| {
-                    let sum = workspace_p.iter()
+                    let sum = workspace_p
+                        .iter()
                         .take(m)
                         .enumerate()
-                        .fold(0.0, |sum, (col, p_col)| sum + workspace_r[m][col] * p_col[row]);
+                        .fold(0.0, |sum, (col, p_col)| {
+                            sum + workspace_r[m][col] * p_col[row]
+                        });
                     r_val - sum
                 })
                 .collect();
@@ -314,13 +320,17 @@ pub fn gmres(
             //println!("new column of R: {:?}", workspace_r[m]);
 
             // calculate next orthonormal vector to Q column from new R column
-            workspace_q[m] = workspace_b[m].iter()
+            workspace_q[m] = workspace_b[m]
+                .iter()
                 .enumerate()
                 .map(|(row, b_val)| {
-                    let sum = workspace_q.iter()
+                    let sum = workspace_q
+                        .iter()
                         .take(m)
                         .enumerate()
-                        .fold(0.0, |sum, (col, q_col)| sum + workspace_r[m][col] * q_col[row]);
+                        .fold(0.0, |sum, (col, q_col)| {
+                            sum + workspace_r[m][col] * q_col[row]
+                        });
                     b_val - sum
                 })
                 .collect();
