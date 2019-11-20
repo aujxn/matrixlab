@@ -37,8 +37,6 @@ pub fn gmres(
     max_iter: usize,              // Maximum number of times to guess the solution of x.
     max_search_directions: usize, // The number of search vectors to consider before restarting.
 ) -> Result<DenseVec<f64>, Error> {
-    /* Step one: allocation */
-
     // gmres only works for square matrices
     if !a.is_square() {
         return Err(Error::SizeMismatch);
@@ -46,8 +44,6 @@ pub fn gmres(
 
     // refers to the size of the square system we are solving
     let dimension = a.num_rows();
-
-    /* Counters */
 
     // the current index of search vectors being considered
     // m is the number of columns in the workspaces detailed
@@ -61,10 +57,6 @@ pub fn gmres(
     /*********************************************************************
      *                            Workspaces                             *
      *********************************************************************/
-
-    /************
-     * Matrices *
-     ************/
 
     // Indexing these workspaces is reverse from most of the lib. Because
     // we will be adding columns to these matrices, they are indexed by
@@ -103,85 +95,50 @@ pub fn gmres(
     // part to solving the least squares problems efficiently.
     // Only data above the diagonal is stored.
     let mut workspace_r: Vec<Vec<f64>> = (0..max_search_directions)
-        .enumerate()
-        .map(|(i, _)| Vec::with_capacity(i + 1))
+        .map(|i| Vec::with_capacity(i + 1))
         .collect();
 
-    /***********
-     * Vectors *
-     ***********/
-
     // current iterate's guess to the solution of Ax = b.
-    let mut x: Vec<f64> = Vec::with_capacity(dimension);
+    // first guess is the 0 vector
+    let mut x: Vec<f64> = vec![0.0; dimension];
+    //println!("initial search vector: {:?}", x);
 
     // intermediate vector for solving the least squares
     // beta = Q^t * r
-    let mut beta: Vec<f64> = Vec::with_capacity(max_search_directions);
+    let mut beta: Vec<f64>;
 
     // solution to the least squares to compute next iterate's x and residual
     let mut alpha: Vec<f64> = vec![0.0; max_search_directions];
 
     // current iterate's residual (error) calculated: b - Ax.
-    let mut residual: Vec<f64> = Vec::with_capacity(dimension);
-
-    /* Step two: initialization */
-
-    // first guess is the 0 vector
-    x = (0..dimension).map(|_| 0.0).collect();
-    //println!("initial search vector: {:?}", x);
-
     // first residual is just b, because b - Ax is the same as b - 0 (Ax = 0)
-    residual = b.get_data().iter().map(|&x| x).collect();
-    let mut residual_norm = residual.iter().fold(0.0, |acc, x| acc + x * x).sqrt();
+    let mut residual: Vec<f64> = b.get_data().clone();
+    let mut residual_norm = norm(&residual);
     //println!("initial residual: {:?}", residual);
     //println!("initial residual norm: {:?}", residual_norm);
 
     /* Step three: iterate */
     loop {
-        //println!("m: {:?}", m);
         // reset the workspaces when max search directions is hit (or starting first iteration)
         if m == 1 {
             // scale the residual so it is normalized. This is our first column of P
-            workspace_p[0] = residual.iter().map(|x| x * (1.0 / residual_norm)).collect();
-            //println!("first search direction: {:?}", workspace_p[0]);
+            workspace_p[0] = normalize(&residual, residual_norm);
 
             // perform the matrix vector multiplication Ap_0 to get first B column
-            workspace_b[0] = a
-                .row_iter()
-                .map(|(cols, data)| {
-                    data.iter()
-                        .zip(cols.iter())
-                        .fold(0.0, |acc, (val, &col)| acc + val * workspace_p[0][col])
-                })
-                .collect();
-            //println!("first B column: {:?}", workspace_b[0]);
+            workspace_b[0] = sparse_matrix_dot_vec(&a, &workspace_p[0]);
 
             // first orthonormal decomposition column of B by normalizing b_zero
-            let b_zero_norm = workspace_b[0].iter().fold(0.0, |acc, x| acc + x * x).sqrt();
-            workspace_q[0] = workspace_b[0]
-                .iter()
-                .map(|x| x * (1.0 / b_zero_norm))
-                .collect();
-            //println!("first column of Q: {:?}", workspace_q[0]);
-            //println!("first B column norm: {:?}", b_zero_norm);
+            let b_zero_norm = norm(&workspace_b[0]);
+            workspace_q[0] = normalize(&workspace_b[0], b_zero_norm);
 
             // upper triangular R is a matrix with a single value
             workspace_r[0].clear();
             workspace_r[0].push(b_zero_norm);
-            //println!("upper triangle with one element (same as last output) {:?}", workspace_r[0]);
         }
 
         // compute beta vector in order to solve least squares
-        beta = workspace_q
-            .iter()
-            .take(m)
-            .map(|row| {
-                row.iter()
-                    .zip(residual.iter())
-                    .fold(0.0, |acc, (q_val, r_val)| acc + q_val * r_val)
-            })
-            .collect();
-        //println!("beta: {:?}", beta);
+        // with Q_transpose * residual
+        beta = dense_matrix_transpose_dot_vec(&workspace_q, m, &residual);
 
         // backsolve least squares
         for row in (0..m).rev() {
@@ -194,65 +151,39 @@ pub fn gmres(
                 .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
             alpha[row] = (beta[row] - inner) / workspace_r[row][row];
         }
-        //println!("alpha: {:?}", alpha);
 
         // compute the next iterate
-        /*
-        x = x.iter()
-            .enumerate()
-            .map(|(row, x_val)| {
-                x_val + (0..m).fold(0.0, |acc, col| acc + workspace_p[col][row] * alpha[col])})
-            .collect();
-        */
-        x = (0..dimension)
-            .map(|row| {
-                (0..m)
-                    .map(|col| workspace_p[col][row])
-                    .zip(alpha.iter())
-                    .fold(0.0, |acc, (p_val, alpha_val)| acc + p_val * alpha_val)
-            })
+        x = dense_matrix_dot_vec(&workspace_p, m, &alpha)
+            .iter()
             .zip(x.iter())
             .map(|(p_alpha, x_val)| p_alpha + x_val)
             .collect();
-        //println!("new iterate: {:?}", x);
 
-        // compute the next residual
-        residual = (0..dimension)
-            .map(|row| {
-                (0..m)
-                    .map(|col| workspace_b[col][row])
-                    .zip(alpha.iter())
-                    .fold(0.0, |acc, (b_val, alpha_val)| acc + b_val * alpha_val)
-            })
+        // compute the new residual
+        residual = dense_matrix_dot_vec(&workspace_b, m, &alpha)
+            .iter()
             .zip(residual.iter())
             .map(|(b_alpha, r_val)| r_val - b_alpha)
             .collect();
-        residual_norm = residual.iter().fold(0.0, |acc, x| acc + x * x).sqrt();
-        /*
-        if new_residual_norm > residual_norm {
-            panic!("residual increased");
-        } else {
-            residual_norm = new_residual_norm;
-        }
-        */
-        //println!("new residual: {:?}", residual);
-        //println!("new residual norm: {:?}", residual_norm);
+        residual_norm = norm(&residual);
 
+        // when residual norm is less than tolerance, x is solution
         if residual_norm < tolerance {
             println!("Iterations: {:?}", iteration);
             return Ok(DenseVec::new(x));
         }
 
         iteration += 1;
+
         if iteration % 100 == 0 {
             println! {"{:?}", residual_norm};
         }
-        //println!("\niteration: {:?}", iteration);
 
         if iteration == max_iter {
             return Err(Error::ExceededIterations(x.clone()));
         }
 
+        // do not restart gmres
         if m < max_search_directions {
             // compute next search direction
 
@@ -282,28 +213,15 @@ pub fn gmres(
                     r_val - sum
                 })
                 .collect();
-            //println!("new column of P (pre - normalized): {:?}", workspace_p[m]);
             // normalize the search vector
-            let norm = workspace_p[m].iter().fold(0.0, |acc, x| acc + x * x).sqrt();
-            //println!("norm of new column of P: {:?}", norm);
-            workspace_p[m] = workspace_p[m]
-                .iter()
-                .map(|p_value| p_value * 1.0 / norm)
-                .collect();
-            //println!("new column of P (normalized): {:?}", workspace_p[m]);
+            let p_norm = norm(&workspace_p[m]);
+            workspace_p[m] = normalize(&workspace_p[m], p_norm);
 
             // add next krylov vector to B
-            workspace_b[m] = a
-                .row_iter()
-                .map(|(cols, data)| {
-                    data.iter()
-                        .zip(cols.iter())
-                        .fold(0.0, |acc, (val, &col)| acc + val * workspace_p[m][col])
-                })
-                .collect();
+            workspace_b[m] = sparse_matrix_dot_vec(&a, &workspace_p[m]);
+
             //println!("new column of B: {:?}", workspace_b[m]);
-            let norm = workspace_b[m].iter().fold(0.0, |acc, x| acc + x * x).sqrt();
-            //println!("norm of new column of B: {:?}", norm);
+            let b_norm = norm(&workspace_b[m]);
 
             // calculate inner products of Q columns and new B column to make new R column
             workspace_r[m] = workspace_q
@@ -316,8 +234,7 @@ pub fn gmres(
                         .fold(0.0, |acc, (q_val, b_val)| acc + q_val * b_val)
                 })
                 .collect();
-            workspace_r[m].push(norm);
-            //println!("new column of R: {:?}", workspace_r[m]);
+            workspace_r[m].push(b_norm);
 
             // calculate next orthonormal vector to Q column from new R column
             workspace_q[m] = workspace_b[m]
@@ -334,19 +251,60 @@ pub fn gmres(
                     b_val - sum
                 })
                 .collect();
-            let norm = workspace_q[m].iter().fold(0.0, |acc, x| acc + x * x).sqrt();
-            workspace_q[m] = workspace_q[m]
-                .iter()
-                .map(|q_value| q_value * 1.0 / norm)
-                .collect();
-            //println!("new column of Q: {:?}", workspace_q[m]);
+            let q_norm = norm(&workspace_q[m]);
+            workspace_q[m] = normalize(&workspace_q[m], q_norm);
 
-            // update search direction counter
             m += 1;
         } else {
-            // reset the search direction counter
+            // restart gmres by resetting the search direction counter
             m = 1;
-            //println!("restarting....");
         }
     }
+}
+
+fn norm(vector: &Vec<f64>) -> f64 {
+    vector.iter().fold(0.0, |acc, x| acc + x * x).sqrt()
+}
+
+fn normalize(vector: &Vec<f64>, norm: f64) -> Vec<f64> {
+    vector.iter().map(|x| x * (1.0 / norm)).collect()
+}
+
+fn dense_matrix_dot_vec(matrix: &Vec<Vec<f64>>, cols: usize, vector: &Vec<f64>) -> Vec<f64> {
+    let dimension = matrix[0].len();
+    (0..dimension)
+        .map(|row| {
+            (0..cols)
+                .map(|col| matrix[col][row])
+                .zip(vector.iter())
+                .fold(0.0, |acc, (mat_val, vec_val)| acc + mat_val * vec_val)
+        })
+        .collect()
+}
+
+fn dense_matrix_transpose_dot_vec(
+    matrix: &Vec<Vec<f64>>,
+    rows: usize,
+    vector: &Vec<f64>,
+) -> Vec<f64> {
+    matrix
+        .iter()
+        .take(rows)
+        .map(|row| {
+            row.iter()
+                .zip(vector.iter())
+                .fold(0.0, |acc, (mat_val, vec_val)| acc + mat_val * vec_val)
+        })
+        .collect()
+}
+
+fn sparse_matrix_dot_vec(matrix: &SparseMatrix<f64>, vector: &Vec<f64>) -> Vec<f64> {
+    matrix
+        .row_iter()
+        .map(|(cols, data)| {
+            data.iter()
+                .zip(cols.iter())
+                .fold(0.0, |acc, (val, &col)| acc + val * vector[col])
+        })
+        .collect()
 }

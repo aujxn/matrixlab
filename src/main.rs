@@ -20,8 +20,8 @@ fn main() {
                 } else {
                     matrix.push(MatrixElement(i, j, rng.gen_range(-100.0, -70.0)));
                 }
-            } else if rng.gen_range(0, 100) > 80 {
-                matrix.push(MatrixElement(i, j, rng.gen_range(-10.0, 10.0)));
+            } else if rng.gen_range(0, 100) > 25 {
+                matrix.push(MatrixElement(i, j, rng.gen_range(-5.0, 5.0)));
             }
         }
     }
@@ -31,9 +31,9 @@ fn main() {
 
     let b = &matrix * &x;
 
-    let result = gmres(matrix.clone(), b.clone(), 0.000001, 1000000, 50).unwrap();
+    let result = gmres(matrix.clone(), b.clone(), 0.0000001, 1000000, 50).unwrap();
     assert_eq!(
-        join(x.get_data().iter().map(|x| format!("{:.2}", x)), &","),
-        join(result.get_data().iter().map(|x| format!("{:.2}", x)), &",")
+        join(x.get_data().iter().map(|x| format!("{:.5}", x)), &","),
+        join(result.get_data().iter().map(|x| format!("{:.5}", x)), &",")
     );
 }
