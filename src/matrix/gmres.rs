@@ -191,28 +191,11 @@ pub fn gmres(
             workspace_r[m] = workspace_p
                 .iter()
                 .take(m)
-                .map(|p_col| {
-                    p_col
-                        .iter()
-                        .zip(residual.iter())
-                        .fold(0.0, |acc, (p_val, r_val)| acc + p_val * r_val)
-                })
+                .map(|p_col| inner(&p_col, &residual))
                 .collect();
             // calculate the next search vector
-            workspace_p[m] = residual
-                .iter()
-                .enumerate()
-                .map(|(row, r_val)| {
-                    let sum = workspace_p
-                        .iter()
-                        .take(m)
-                        .enumerate()
-                        .fold(0.0, |sum, (col, p_col)| {
-                            sum + workspace_r[m][col] * p_col[row]
-                        });
-                    r_val - sum
-                })
-                .collect();
+            workspace_p[m] = orthogonal_to(&workspace_p, m, &residual, &workspace_r[m]);
+
             // normalize the search vector
             let p_norm = norm(&workspace_p[m]);
             workspace_p[m] = normalize(&workspace_p[m], p_norm);
@@ -227,30 +210,12 @@ pub fn gmres(
             workspace_r[m] = workspace_q
                 .iter()
                 .take(m)
-                .map(|q_col| {
-                    q_col
-                        .iter()
-                        .zip(workspace_b[m].iter())
-                        .fold(0.0, |acc, (q_val, b_val)| acc + q_val * b_val)
-                })
+                .map(|q_col| inner(&q_col, &workspace_b[m]))
                 .collect();
             workspace_r[m].push(b_norm);
 
             // calculate next orthonormal vector to Q column from new R column
-            workspace_q[m] = workspace_b[m]
-                .iter()
-                .enumerate()
-                .map(|(row, b_val)| {
-                    let sum = workspace_q
-                        .iter()
-                        .take(m)
-                        .enumerate()
-                        .fold(0.0, |sum, (col, q_col)| {
-                            sum + workspace_r[m][col] * q_col[row]
-                        });
-                    b_val - sum
-                })
-                .collect();
+            workspace_q[m] = orthogonal_to(&workspace_q, m, &workspace_b[m], &workspace_r[m]);
             let q_norm = norm(&workspace_q[m]);
             workspace_q[m] = normalize(&workspace_q[m], q_norm);
 
@@ -268,6 +233,35 @@ fn norm(vector: &Vec<f64>) -> f64 {
 
 fn normalize(vector: &Vec<f64>, norm: f64) -> Vec<f64> {
     vector.iter().map(|x| x * (1.0 / norm)).collect()
+}
+
+fn inner(vector1: &Vec<f64>, vector2: &Vec<f64>) -> f64 {
+    vector1
+        .iter()
+        .zip(vector2.iter())
+        .fold(0.0, |inner, (val_1, val_2)| inner + val_1 * val_2)
+}
+
+fn orthogonal_to(
+    orthonormal_matrix: &Vec<Vec<f64>>,
+    cols: usize,
+    vector: &Vec<f64>,
+    coefficient: &Vec<f64>,
+) -> Vec<f64> {
+    vector
+        .iter()
+        .enumerate()
+        .map(|(row, vec_val)| {
+            let sum = orthonormal_matrix
+                .iter()
+                .take(cols)
+                .enumerate()
+                .fold(0.0, |sum, (col, mat_col)| {
+                    sum + coefficient[col] * mat_col[row]
+                });
+            vec_val - sum
+        })
+        .collect()
 }
 
 fn dense_matrix_dot_vec(matrix: &Vec<Vec<f64>>, cols: usize, vector: &Vec<f64>) -> Vec<f64> {

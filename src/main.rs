@@ -8,8 +8,7 @@ use rand::prelude::*;
 fn main() {
     let mut matrix: Vec<MatrixElement<f64>> = vec![];
     let mut x = vec![];
-    let n = 1000;
-
+    let n = 7000;
     let mut rng = rand::thread_rng();
     for i in 0..n {
         x.push(rng.gen_range(-10.0, 10.0));
@@ -20,18 +19,15 @@ fn main() {
                 } else {
                     matrix.push(MatrixElement(i, j, rng.gen_range(-100.0, -70.0)));
                 }
-            } else if rng.gen_range(0, 100) > 25 {
-                matrix.push(MatrixElement(i, j, rng.gen_range(-5.0, 5.0)));
+            } else if rng.gen_range(0, 100) > 87 {
+                matrix.push(MatrixElement(i, j, rng.gen_range(-2.0, 2.0)));
             }
         }
     }
-
     let matrix = SparseMatrix::new(n, n, matrix).unwrap();
     let x = DenseVec::new(x);
-
     let b = &matrix * &x;
-
-    let result = gmres(matrix.clone(), b.clone(), 0.0000001, 1000000, 50).unwrap();
+    let result = gmres(matrix.clone(), b.clone(), 0.0000001, 1000000, 5).unwrap();
     assert_eq!(
         join(x.get_data().iter().map(|x| format!("{:.5}", x)), &","),
         join(result.get_data().iter().map(|x| format!("{:.5}", x)), &",")
