@@ -37,7 +37,7 @@ mod huge {
 
         let b = &matrix * &x;
 
-        let result = gmres(matrix.clone(), b.clone(), 0.000001, 1000000, 50).unwrap();
+        let result = gmres(&matrix.clone(), &b.clone(), 0.000001, 1000000, 50).unwrap();
         assert_eq!(
             join(x.get_data().iter().map(|x| format!("{:.2}", x)), &","),
             join(result.get_data().iter().map(|x| format!("{:.2}", x)), &",")
@@ -77,7 +77,7 @@ mod matrix {
 
         let b = &matrix * &x;
 
-        let mut result = gmres(matrix, b, 1.0 / 10000.0, 100000, 5).unwrap();
+        let mut result = gmres(&matrix, &b, 1.0 / 10000.0, 100000, 5).unwrap();
 
         for x in result.get_data_mut() {
             *x = x.round()

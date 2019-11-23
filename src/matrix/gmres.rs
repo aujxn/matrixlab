@@ -26,13 +26,13 @@ use rayon::prelude::*;
 /// let elements = vec![MatrixElement(0, 0, 2f64), MatrixElement(1, 1, 2f64), MatrixElement(0, 1, 1.0)];
 /// let mat = SparseMatrix::new(2, 2, elements.clone()).unwrap();
 ///
-/// let result = gmres(mat, DenseVec::new(vec![3.0, 2.0]), 1.0 / 1000000.0, 1000, 2)
+/// let result = gmres(&mat, &DenseVec::new(vec![3.0, 2.0]), 1.0 / 1000000.0, 1000, 2)
 ///     .unwrap();
 ///     assert_eq!(result, DenseVec::new(vec![1.0, 1.0]));
 /// ```
 pub fn gmres(
-    a: SparseMatrix<f64>,         // The system to solve. Referred to as A below.
-    b: DenseVec<f64>,             // The vector to solve Ax = b for x.
+    a: &SparseMatrix<f64>,        // The system to solve. Referred to as A below.
+    b: &DenseVec<f64>,            // The vector to solve Ax = b for x.
     tolerance: f64,               // The acceptable level of residual. Calculated b - Ax.
     max_iter: usize,              // Maximum number of times to guess the solution of x.
     max_search_directions: usize, // The number of search vectors to consider before restarting.
@@ -114,16 +114,14 @@ pub fn gmres(
     // first residual is just b, because b - Ax is the same as b - 0 (Ax = 0)
     let mut residual: Vec<f64> = b.get_data().clone();
     let mut residual_norm = norm(&residual);
-    //println!("initial residual: {:?}", residual);
-    //println!("initial residual norm: {:?}", residual_norm);
+
+    // scale the residual so it is normalized. This is our first column of P
+    workspace_p[0] = normalize(&residual, residual_norm);
 
     /* Step three: iterate */
     loop {
         // reset the workspaces when max search directions is hit (or starting first iteration)
         if m == 1 {
-            // scale the residual so it is normalized. This is our first column of P
-            workspace_p[0] = normalize(&residual, residual_norm);
-
             // perform the matrix vector multiplication Ap_0 to get first B column
             workspace_b[0] = sparse_matrix_dot_vec(&a, &workspace_p[0]);
 
@@ -141,16 +139,7 @@ pub fn gmres(
         beta = dense_matrix_transpose_dot_vec(&workspace_q, m, &residual);
 
         // backsolve least squares
-        for row in (0..m).rev() {
-            let inner = workspace_r
-                .iter()
-                .skip(row + 1)
-                .take(m - (row + 1))
-                .map(|col| col[row])
-                .zip(alpha.iter().skip(row + 1))
-                .fold(0.0, |acc, (r_val, alpha_val)| acc + r_val * alpha_val);
-            alpha[row] = (beta[row] - inner) / workspace_r[row][row];
-        }
+        backsolve(&workspace_r, m, &mut alpha, &beta);
 
         // compute the next iterate
         x = dense_matrix_dot_vec(&workspace_p, m, &alpha)
@@ -160,12 +149,34 @@ pub fn gmres(
             .collect();
 
         // compute the new residual
+        /*
         residual = dense_matrix_dot_vec(&workspace_b, m, &alpha)
             .iter()
             .zip(residual.iter())
             .map(|(b_alpha, r_val)| r_val - b_alpha)
             .collect();
-        residual_norm = norm(&residual);
+        */
+        // test if more numerical stability
+        residual = a
+            .row_iter()
+            .map(|(col, data)| {
+                data.iter()
+                    .zip(col.iter())
+                    .fold(0.0, |acc, (row_val, &i)| acc + row_val * x[i])
+            })
+            .zip(b.iter())
+            .map(|(a_x, b_val)| b_val - a_x)
+            .collect();
+
+        let new_residual_norm = norm(&residual);
+        if m != 1 && new_residual_norm > residual_norm {
+            panic!(
+                "residual increased:\niteration: {:?}\nsearch directions:{:?}\n",
+                iteration, m
+            );
+        } else {
+            residual_norm = new_residual_norm;
+        }
 
         // when residual norm is less than tolerance, x is solution
         if residual_norm < tolerance {
@@ -175,7 +186,7 @@ pub fn gmres(
 
         iteration += 1;
 
-        if iteration % 100 == 0 {
+        if iteration % 1000 == 0 {
             println! {"{:?}", residual_norm};
         }
 
@@ -185,17 +196,10 @@ pub fn gmres(
 
         // do not restart gmres
         if m < max_search_directions {
-            // compute next search direction
-
             // calculate inner products of P columns and residual vector
-            workspace_r[m] = workspace_p
-                .iter()
-                .take(m)
-                .map(|p_col| inner(&p_col, &residual))
-                .collect();
+            workspace_r[m] = orthogonalization_coefficients(&workspace_p, m, &residual);
             // calculate the next search vector
             workspace_p[m] = orthogonal_to(&workspace_p, m, &residual, &workspace_r[m]);
-
             // normalize the search vector
             let p_norm = norm(&workspace_p[m]);
             workspace_p[m] = normalize(&workspace_p[m], p_norm);
@@ -203,15 +207,9 @@ pub fn gmres(
             // add next krylov vector to B
             workspace_b[m] = sparse_matrix_dot_vec(&a, &workspace_p[m]);
 
-            //println!("new column of B: {:?}", workspace_b[m]);
-            let b_norm = norm(&workspace_b[m]);
-
             // calculate inner products of Q columns and new B column to make new R column
-            workspace_r[m] = workspace_q
-                .iter()
-                .take(m)
-                .map(|q_col| inner(&q_col, &workspace_b[m]))
-                .collect();
+            workspace_r[m] = orthogonalization_coefficients(&workspace_q, m, &workspace_b[m]);
+            let b_norm = norm(&workspace_b[m]);
             workspace_r[m].push(b_norm);
 
             // calculate next orthonormal vector to Q column from new R column
@@ -219,10 +217,37 @@ pub fn gmres(
             let q_norm = norm(&workspace_q[m]);
             workspace_q[m] = normalize(&workspace_q[m], q_norm);
 
+            let e = 0.00000001;
+            if p_norm < e {
+                println!(
+                    "zero vector produced - p_norm: {:?}\n vector:{:?}",
+                    p_norm, workspace_p[m]
+                );
+            }
+            if q_norm < e {
+                println!(
+                    "zero vector produced - q_norm: {:?}\n vector:{:?}",
+                    q_norm, workspace_q[m]
+                );
+            }
+            test_orthogonality(&workspace_q, m);
+            test_orthogonality(&workspace_p, m);
             m += 1;
         } else {
             // restart gmres by resetting the search direction counter
             m = 1;
+            workspace_p[0] = workspace_p[max_search_directions - 1].clone();
+        }
+    }
+}
+
+fn test_orthogonality(matrix: &Vec<Vec<f64>>, cols: usize) {
+    for col1 in 0..cols {
+        for col2 in col1 + 1..cols {
+            let orth_inner = inner(&matrix[col1], &matrix[col2]);
+            if orth_inner > 0.1 {
+                println!("{:?}", orth_inner);
+            }
         }
     }
 }
@@ -232,7 +257,7 @@ fn norm(vector: &Vec<f64>) -> f64 {
 }
 
 fn normalize(vector: &Vec<f64>, norm: f64) -> Vec<f64> {
-    vector.iter().map(|x| x * (1.0 / norm)).collect()
+    vector.iter().map(|x| x / norm).collect()
 }
 
 fn inner(vector1: &Vec<f64>, vector2: &Vec<f64>) -> f64 {
@@ -240,6 +265,46 @@ fn inner(vector1: &Vec<f64>, vector2: &Vec<f64>) -> f64 {
         .iter()
         .zip(vector2.iter())
         .fold(0.0, |inner, (val_1, val_2)| inner + val_1 * val_2)
+}
+
+fn backsolve(matrix: &Vec<Vec<f64>>, cols: usize, x: &mut Vec<f64>, b: &Vec<f64>) {
+    for row in (0..cols).rev() {
+        let inner = matrix
+            .iter()
+            .skip(row + 1)
+            .take(cols - (row + 1))
+            .map(|col| col[row])
+            .zip(x.iter().skip(row + 1))
+            .fold(0.0, |acc, (mat_val, x_val)| acc + mat_val * x_val);
+        x[row] = (b[row] - inner) / matrix[row][row];
+    }
+}
+
+#[test]
+fn solve_upper_triangular() {
+    let r = vec![
+        vec![15.0],
+        vec![10.0, 6.0],
+        vec![10.0, 2.0, 4.0],
+        vec![1.0, 3.0, 1.0, 12.0],
+    ];
+    let b = vec![156.0, 39.0, 13.0, 12.0];
+    let x = vec![5.0, 5.0, 3.0, 1.0];
+    let mut result = vec![0.0; 4];
+    backsolve(&r, 4, &mut result, &b);
+    assert_eq!(x, result);
+}
+
+fn orthogonalization_coefficients(
+    orthonormal_matrix: &Vec<Vec<f64>>,
+    cols: usize,
+    vector: &Vec<f64>,
+) -> Vec<f64> {
+    orthonormal_matrix
+        .iter()
+        .take(cols)
+        .map(|mat_col| inner(&mat_col, &vector))
+        .collect()
 }
 
 fn orthogonal_to(
