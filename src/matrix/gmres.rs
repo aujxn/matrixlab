@@ -168,6 +168,8 @@ pub fn gmres(
             .map(|(a_x, b_val)| b_val - a_x)
             .collect();
 
+        residual_norm = norm(&residual);
+        /*
         let new_residual_norm = norm(&residual);
         if m != 1 && new_residual_norm > residual_norm {
             panic!(
@@ -177,6 +179,7 @@ pub fn gmres(
         } else {
             residual_norm = new_residual_norm;
         }
+        */
 
         // when residual norm is less than tolerance, x is solution
         if residual_norm < tolerance {
@@ -217,6 +220,7 @@ pub fn gmres(
             let q_norm = norm(&workspace_q[m]);
             workspace_q[m] = normalize(&workspace_q[m], q_norm);
 
+            /*
             let e = 0.00000001;
             if p_norm < e {
                 println!(
@@ -232,6 +236,7 @@ pub fn gmres(
             }
             test_orthogonality(&workspace_q, m);
             test_orthogonality(&workspace_p, m);
+            */
             m += 1;
         } else {
             // restart gmres by resetting the search direction counter

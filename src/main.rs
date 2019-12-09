@@ -8,17 +8,20 @@ use rand::prelude::*;
 use std::path::Path;
 
 fn main() {
-    let (x, result) = solve_file_random_x("./matrices/can_838.mtx");
+    let (x, result) = solve_file_random_x("./matrices/bcspwr01.mtx");
     assert_eq!(
         join(x.get_data().iter().map(|x| format!("{:.3}", x)), &","),
         join(result.get_data().iter().map(|x| format!("{:.3}", x)), &",")
     );
 
-    let (x, result) = solve_random_system(2000, (70.0, 100.0), (-2.0, 2.0), (-20.0, 20.0), 0.2);
-    assert_eq!(
-        join(x.get_data().iter().map(|x| format!("{:.2}", x)), &","),
-        join(result.get_data().iter().map(|x| format!("{:.2}", x)), &",")
-    );
+    for i in 1..5 {
+        let (x, result) =
+            solve_random_system(400 * i, (70.0, 100.0), (-2.0, 2.0), (-20.0, 20.0), 0.2);
+        assert_eq!(
+            join(x.get_data().iter().map(|x| format!("{:.2}", x)), &","),
+            join(result.get_data().iter().map(|x| format!("{:.2}", x)), &",")
+        );
+    }
 }
 
 fn solve_file_random_x(path: &str) -> (DenseVec<f64>, DenseVec<f64>) {
@@ -67,5 +70,11 @@ fn solve_random_system(
     let x = DenseVec::new(x);
 
     let b = &matrix * &x;
-    (x, gmres(&matrix, &b, 0.00000001, 100000000, 30).unwrap())
+    println!("size: {:?}", size);
+    let mut ret = vec![];
+    for i in 1..10 {
+        println!("max searches: {:?}", i * 10);
+        ret.push(gmres(&matrix, &b, 0.00000001, 100000000, i * 10).unwrap());
+    }
+    (x, ret.pop().unwrap())
 }
